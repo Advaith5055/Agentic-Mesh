@@ -1,0 +1,967 @@
+\begin{filecontents*}{\jobname.bib}
+% --- Partition Tolerance and Distributed Databases ---
+@article{sarin1985partition,
+  title={System Architecture for Partition-Tolerant Distributed Databases},
+  author={Sarin, Sunil K. and Blaustein, Barbara T. and Kaufman, Charles W.},
+  journal={IEEE Transactions on Computers},
+  volume={C-34},
+  number={12},
+  pages={1158--1163},
+  year={1985},
+  month={Dec},
+  publisher={IEEE}
+}
+
+% --- Replication and Consistency ---
+@inproceedings{shao2016dmvcc,
+  title={Read Consistency in Distributed Database Based on {DMVCC}},
+  author={Shao, Jie and Yin, Boxue and Chen, Bujiao and Wang, Guangshu and Yang, Lin and Yan, Jianliang and Wang, Jianying and Liu, Weidong},
+  booktitle={Proc. 2016 IEEE 23rd International Conference on High Performance Computing (HiPC)},
+  pages={142--151},
+  year={2016},
+  doi={10.1109/HiPC.2016.025}
+}
+
+@inproceedings{coulon2005consistency,
+  title={Consistency Management for Partial Replication in a High Performance Database Cluster},
+  author={Coulon, C\'{e}dric and Pacitti, Esther and Valduriez, Patrick},
+  booktitle={Proc. 11th International Conference on Parallel and Distributed Systems (ICPADS)},
+  volume={1},
+  pages={809--815},
+  year={2005},
+  doi={10.1109/ICPADS.2005.114}
+}
+
+@inproceedings{pedone2000replication,
+  title={Understanding Replication in Databases and Distributed Systems},
+  author={Pedone, Fernando and Wiesmann, Matthias and Schiper, Andr\'{e} and Kemme, Bettina and Alonso, Gustavo},
+  booktitle={Proc. 20th IEEE International Conference on Distributed Computing Systems (ICDCS)},
+  pages={464--474},
+  year={2000},
+  doi={10.1109/ICDCS.2000.840959}
+}
+
+% --- Gossip and P2P ---
+@inproceedings{chuat2015gossip,
+  title={Efficient Gossip Protocols for Verifying the Consistency of Certificate Logs},
+  author={Chuat, Laurent and Szalachowski, Pawel and Perrig, Adrian and Laurie, Ben and Messeri, Eran},
+  booktitle={Proc. 2015 IEEE Conference on Communications and Network Security (CNS)},
+  pages={415--423},
+  year={2015},
+  doi={10.1109/CNS.2015.7346853}
+}
+
+@inproceedings{dougherty2008dht,
+  title={Implementation of the Distributed Hash Tables on Peer-to-peer Networks},
+  author={Dougherty, Michael and Kimm, Haklin and Ham, Ho-sang},
+  booktitle={Proc. 2008 IEEE Sarnoff Symposium},
+  year={2008},
+  doi={10.1109/SARNOF.2008.4520057}
+}
+
+@inproceedings{vyzovitis2020gossipsub,
+  title={{GossipSub}: An Extensible Baseline Pubsub Protocol for libp2p},
+  author={Vyzovitis, Dimitris and Napier, Yiannis and McCormick, David and Jerger, Jeromy and Dias, David},
+  booktitle={2020 IEEE International Conference on Blockchain and Cryptocurrency (ICBC)},
+  pages={1--9},
+  year={2020},
+  organization={IEEE}
+}
+
+@article{trautwein2022libp2p,
+  title={Design and Evaluation of libp2p: A Modular Network Stack for Peer-to-Peer Applications},
+  author={Trautwein, Dennis and Raman, Aravind and Tyson, Gareth and Castro, Ignacio and Sathiaseelan, Arjuna},
+  journal={IEEE/ACM Transactions on Networking},
+  volume={31},
+  number={4},
+  pages={1550--1565},
+  year={2022},
+  publisher={IEEE}
+}
+
+% --- Text-to-SQL and LLM Database Interfaces ---
+@inproceedings{visperas2023texttosql,
+  title={On Modern Text-to-{SQL} Semantic Parsing Methodologies for Natural Language Interface to Databases: A Comparative Study},
+  author={Visperas, Moses L. and Adoptante, Aunhel John M. and Borjal, Christalline Joie and Abia, Ma. Teresita Abena and Catapang, Jasper Kyle and Peramo, Elmer C.},
+  booktitle={Proc. 2023 International Conference on Artificial Intelligence in Information and Communication (ICAIIC)},
+  pages={390--396},
+  year={2023},
+  doi={10.1109/ICAIIC57133.2023.10067134}
+}
+
+@inproceedings{singh2025llmtexttosql,
+  title={A Survey of Large Language Model-Based Generative {AI} for Text-to-{SQL}: Benchmarks, Applications, Use Cases, and Challenges},
+  author={Singh, Aditi and Shetty, Akash and Ehtesham, Abul and Kumar, Saket and Khoei, Tala Talaei},
+  booktitle={Proc. 2025 IEEE 15th Annual Computing and Communication Workshop and Conference (CCWC)},
+  pages={15--21},
+  year={2025},
+  doi={10.1109/CCWC62904.2025.10903689}
+}
+
+% --- CRDTs and Causal Ordering ---
+@inproceedings{shapiro2011conflict,
+  title={Conflict-Free Replicated Data Types},
+  author={Shapiro, Marc and Pregui{\c{c}}a, Nuno and Baquero, Carlos and Zawirski, Marek},
+  booktitle={Proc. 13th International Symposium on Stabilization, Safety, and Security of Distributed Systems (SSS)},
+  pages={386--400},
+  year={2011},
+  publisher={Springer}
+}
+
+@article{lamport1978time,
+  title={Time, Clocks, and the Ordering of Events in a Distributed System},
+  author={Lamport, Leslie},
+  journal={Communications of the ACM},
+  volume={21},
+  number={7},
+  pages={558--565},
+  year={1978},
+  publisher={ACM}
+}
+
+@article{fidge1988timestamps,
+  title={Timestamps in Message-Passing Systems That Preserve the Partial Ordering},
+  author={Fidge, Colin J.},
+  journal={Australian Computer Science Communications},
+  volume={10},
+  number={1},
+  pages={56--66},
+  year={1988}
+}
+
+@inproceedings{mattern1989virtual,
+  title={Virtual Time and Global States of Distributed Systems},
+  author={Mattern, Friedemann},
+  booktitle={Parallel and Distributed Algorithms},
+  volume={1},
+  number={23},
+  pages={215--226},
+  year={1989}
+}
+
+% --- Relational Theory and Normalization ---
+@article{codd1970relational,
+  title={A Relational Model of Data for Large Shared Data Banks},
+  author={Codd, Edgar F.},
+  journal={Communications of the ACM},
+  volume={13},
+  number={6},
+  pages={377--387},
+  year={1970},
+  publisher={ACM}
+}
+
+@article{codd1974recent,
+  title={Recent Investigations in Relational Data Base Systems},
+  author={Codd, Edgar F.},
+  journal={Information Processing},
+  volume={74},
+  pages={1017--1021},
+  year={1974}
+}
+
+@article{armstrong1974dependency,
+  title={Dependency Structures of Data Base Relationships},
+  author={Armstrong, William Ward},
+  journal={Information Processing},
+  volume={74},
+  pages={580--583},
+  year={1974}
+}
+
+@article{beeri1979computational,
+  title={Computational Problems Related to the Design of Normal Form Relational Schemas},
+  author={Beeri, Catriel and Bernstein, Philip A.},
+  journal={ACM Transactions on Database Systems (TODS)},
+  volume={4},
+  number={1},
+  pages={30--59},
+  year={1979},
+  publisher={ACM}
+}
+
+% --- Distributed Systems Foundations ---
+@article{vogels2009eventually,
+  title={Eventually Consistent},
+  author={Vogels, Werner},
+  journal={Communications of the ACM},
+  volume={52},
+  number={1},
+  pages={40--44},
+  year={2009},
+  publisher={ACM}
+}
+
+@article{brewer2012cap,
+  title={{CAP} Twelve Years Later: How the ``Rules'' Have Changed},
+  author={Brewer, Eric},
+  journal={Computer},
+  volume={45},
+  number={2},
+  pages={23--29},
+  year={2012},
+  publisher={IEEE}
+}
+
+% --- Tools, Models, and Systems ---
+@article{hipp2020sqlite,
+  title={{SQLite}: An Embeddable, Zero-Configuration {SQL} Database Engine},
+  author={Hipp, D. Richard and Kennedy, Dan and Mistachkin, Joe},
+  journal={SQLite Development Team},
+  year={2020}
+}
+
+@article{team2024gemma,
+  title={Gemma: Open Models Based on Gemini Research and Technology},
+  author={{Gemma Team} and Mesnard, Thomas and Hardin, Cassidy and Dadashi, Robert and Bhupatiraju, Surya and Pathak, Shreya and Sifre, Laurent and Rivi\`{e}re, Morgane and Kale, Mihir Sanjay and Love, Juliette and others},
+  journal={arXiv preprint arXiv:2403.08295},
+  year={2024}
+}
+
+@article{schick2023toolformer,
+  title={Toolformer: Language Models Can Teach Themselves to Use Tools},
+  author={Schick, Timo and Dwivedi-Yu, Jane and Dess\`{\i}, Roberto and Raileanu, Roberta and Lomeli, Maria and Zettlemoyer, Luke and Cancedda, Nicola and Scialom, Thomas},
+  journal={Advances in Neural Information Processing Systems (NeurIPS)},
+  volume={36},
+  pages={68539--68551},
+  year={2023}
+}
+\end{filecontents*}
+
+% =========================================================================
+% Agentic Mesh — IEEE Conference Paper
+% =========================================================================
+% Compile: pdflatex -> bibtex -> pdflatex -> pdflatex
+% =========================================================================
+\documentclass[conference]{IEEEtran}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{algorithmicx}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+\usepackage{balance}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc,fit,backgrounds}
+
+% Theorem environments
+\newtheorem{definition}{Definition}
+\newtheorem{proposition}{Proposition}
+
+% Code listing styling
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  breaklines=true,
+  columns=fullflexible,
+  frame=single,
+  backgroundcolor=\color{gray!4},
+  keywordstyle=\color{blue!80!black}\bfseries,
+  commentstyle=\color{green!50!black}\itshape,
+  stringstyle=\color{red!70!black},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  stepnumber=1,
+  captionpos=b,
+  tabsize=2,
+  showstringspaces=false,
+  xleftmargin=2.5em,
+  framexleftmargin=2em
+}
+
+\begin{document}
+
+\title{Agentic Mesh: A Masterless Peer-to-Peer Relational Database\\with Decoupled Edge-AI Planning and Causal Replication}
+
+\author{
+\IEEEauthorblockN{Amar Prabha, Ashok, Advaith J, and Yashavanth NR}
+\IEEEauthorblockA{
+\textit{Department of Computer Science and Engineering} \\
+\textit{AMC Engineering College}\\
+Bengaluru, Karnataka, India \\
+Emails: amarprabha11@gmail.com, ashokgouda110163@gmail.com, \\
+advaith200421@gmail.com, 1am23cs249@amceducation.com
+}
+}
+
+\maketitle
+
+% =========================================================================
+% ABSTRACT
+% =========================================================================
+\begin{abstract}
+Running a relational database on intermittently connected edge networks requires balancing local write availability against global consistency. While centralized databases rely on wide-area connectivity, and decentralized key-value stores lack cross-record relational constraints, we implemented Agentic Mesh to bridge this gap. Agentic Mesh is a masterless, zero-cloud peer-to-peer relational database designed for local environments. The architecture embeds an independent SQLite database within each peer and replicates transactions over a libp2p GossipSub mesh. We rely on an append-only ledger and vector-clock metadata for causal tracking, duplicate detection, and partition catch-up.
+
+To integrate conversational AI without blocking the synchronous write path, the system employs a bifurcated execution model. Standard structured mutations execute immediately through a deterministic schema validator. Natural-language prompts are routed to a decoupled local language model (Gemma) that plans intent. Crucially, the model does not generate arbitrary SQL; instead, it outputs bounded relational tool operations (\texttt{INSERT}, \texttt{UPDATE}, \texttt{DELETE}) that must pass the same deterministic validation layer before local commitment. While our current implementation successfully preserves local relational constraints and demonstrates convergence under validated causal replay, we note that concurrent conflicting writes can still cause replica divergence. This paper outlines the architecture, formalizes our convergence properties, and details the evaluation methodology planned for future quantitative benchmarking.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Peer-to-Peer Databases, Distributed Replication, Edge Artificial Intelligence, Large Language Models, Vector Clocks, Database Normalization, GossipSub, libp2p, SQLite.
+\end{IEEEkeywords}
+
+% =========================================================================
+% I. INTRODUCTION
+% =========================================================================
+\section{Introduction}
+\label{sec:introduction}
+
+\IEEEPARstart{K}{eeping} a relational database available during a local network partition creates a problem that does not appear in a centralized deployment: each peer must be able to accept a write, but cannot immediately know whether the same key has been modified elsewhere~\cite{sarin1985partition}. While cloud-hosted engines handle this by forcing transactions through a single primary coordinator~\cite{brewer2012cap}, edge environments---like tactical networks or industrial sites---often lack reliable wide-area uplinks. Nodes in these networks need autonomous write capability backed by robust relational storage, and they must gracefully synchronize when their local network reconnects.
+
+Building a masterless relational database to solve this exposes three practical engineering problems:
+
+\begin{enumerate}
+    \item \textbf{Decentralized Relational Invariants:} In a key-value store, peers can merge disconnected updates trivially because keys are independent. Relational databases, however, enforce foreign keys, uniqueness, and domain checks~\cite{codd1970relational, codd1974recent}. Enforcing these cross-table invariants without a central lock manager is difficult if we also want to maintain write availability during a network split.
+    \item \textbf{Inference Latency on Transaction Paths:} We want to allow edge operators to query and update the database using conversational interfaces powered by local language models (like Google Gemma~\cite{team2024gemma}). However, LLM token generation is slow. If model inference sits on the synchronous write path, database throughput collapses.
+    \item \textbf{Generative SQL Hallucination:} Generating raw SQL directly from user prompts is risky. End-to-end Text-to-SQL models frequently hallucinate non-existent columns, drop join predicates, or issue destructive commands~\cite{visperas2023texttosql, singh2025llmtexttosql}. Any production database needs deterministic validation before data touches the disk.
+\end{enumerate}
+
+We built \textbf{Agentic Mesh} to solve these issues for local-area networks. Instead of relying on a primary node, every peer in Agentic Mesh runs an identical software stack. We paired embedded SQLite storage~\cite{hipp2020sqlite} with libp2p GossipSub transport~\cite{trautwein2022libp2p, vyzovitis2020gossipsub} and implemented causal tracking via vector clocks~\cite{fidge1988timestamps, lamport1978time} to create a zero-cloud peer-to-peer relational mesh.
+
+To prevent the AI components from bottlenecking the system, we implemented a \textbf{bifurcated execution pipeline}. Standard application transactions follow a high-speed, deterministic fast path directly to SQLite. Natural-language requests diverge to a local LLM planner. To solve the hallucination problem, the planner cannot execute raw SQL strings. It must map the user's intent into bounded JSON tool operations, which are then routed back through the exact same deterministic validation logic used by the fast path before any disk commit occurs.
+
+\subsection{Research Contributions}
+Our prototype demonstrates the following architectural contributions:
+\begin{enumerate}
+    \item \textbf{Coordinator-Free Relational Architecture:} A masterless integration of embedded SQLite, libp2p gossip dissemination, and vector-clock metadata over an append-only local replication log.
+    \item \textbf{Bifurcated Execution Pipeline:} An operational split that isolates the latency of edge-LLM intent planning from the high-throughput deterministic write path.
+    \item \textbf{Bounded Tool-Level Relational Abstraction:} A defensive design that forces the LLM to output structured relational operations ($\mathcal{M}_{\text{tool}}$) mapped to parameterized SQL, thereby reducing the SQL-injection attack surface.
+    \item \textbf{Validated Replay Convergence Model:} A formal analysis of how multi-peer state converges under causal log replay, including a concrete examination of divergence caused by concurrent conflicting writes.
+\end{enumerate}
+
+We emphasize that Agentic Mesh's novelty lies in how these systems are integrated and structurally isolated at the edge, rather than in the individual components (SQLite, libp2p, GossipSub), which are established primitives.
+
+% =========================================================================
+% II. RELATED WORK
+% =========================================================================
+\section{Background and Related Work}
+\label{sec:related_work}
+
+\subsection{Distributed and Partition-Tolerant Databases}
+Managing databases over uncoordinated networks requires addressing partition tolerance~\cite{brewer2012cap}. Early designs maintained local availability by accepting writes locally and exchanging reconciliation logs when connections were restored~\cite{sarin1985partition}. Modern systems optimize this by tuning refresh delays in cluster environments~\cite{coulon2005consistency} or employing distributed multiversion concurrency control (DMVCC) to reduce coordination overhead~\cite{shao2016dmvcc}. These solutions assume high-speed datacenter interconnects. Agentic Mesh differs because it targets ad-hoc LAN environments where peers routinely suffer prolonged disconnections.
+
+\subsection{Peer-to-Peer and Local-First Storage}
+Most peer-to-peer storage mechanisms rely on Distributed Hash Tables (DHTs)~\cite{dougherty2008dht} or DAGs to synchronize data. While document-based synchronization works well for independent objects, it lacks the machinery to handle relational algebra, foreign-key cascades, or domain constraints essential for structured data~\cite{codd1970relational, codd1974recent}. We built Agentic Mesh to bring P2P replication overlays directly to embedded relational engines like SQLite, closing the gap between offline-first availability and relational integrity.
+
+\subsection{Replication and Consistency Paradigms}
+Database replication fundamentally depends on how and when updates propagate~\cite{pedone2000replication}. A masterless, update-everywhere model with lazy gossip dissemination allows our nodes to accept local writes instantly. We trade global linearizable consistency for immediate local availability, an acceptable compromise when network partitioning is the norm~\cite{vogels2009eventually}.
+
+\subsection{CRDTs and Causal Metadata}
+Conflict-Free Replicated Data Types (CRDTs) achieve eventual consistency by guaranteeing that concurrent operations mathematically commute~\cite{shapiro2011conflict}. However, translating complex multi-table referential constraints into standard CRDT primitives is not natively supported by SQLite. Instead of attempting a full CRDT implementation, Agentic Mesh uses vector clocks~\cite{fidge1988timestamps, mattern1989virtual} based on Lamport clocks~\cite{lamport1978time} purely for causal tracking. We record $V_A \parallel V_B$ relationships within our replication ledger to identify concurrent events, relying on deterministic validation rather than an unconstrained CRDT merge algebra.
+
+\subsection{Gossip Dissemination and P2P Overlays}
+Decentralized log consistency is efficiently handled by gossip protocols, which scale logarithmically without central servers~\cite{chuat2015gossip}. For transport, we implemented the libp2p stack~\cite{trautwein2022libp2p} due to its built-in stream multiplexing and encrypted Noise handshakes. We specifically use GossipSub~\cite{vyzovitis2020gossipsub} because it natively suppresses redundant message rebroadcasts, which prevents flooded networks when peers reconnect and exchange backlogged transactions.
+
+\subsection{Natural-Language Database Interfaces and Tool Use}
+As natural language database interfaces transitioned to LLMs, research revealed significant accuracy drop-offs on multi-table schemas~\cite{visperas2023texttosql}. Generating raw Text-to-SQL introduces severe execution risks, including schema hallucination and destructive commands~\cite{singh2025llmtexttosql}. Bounding LLMs to distinct tools significantly improves execution safety~\cite{schick2023toolformer}. In Agentic Mesh, we apply this by restricting our local LLM to a planner role. It can only emit JSON-formatted tool operations, enforcing a strict boundary between probabilistic generation and deterministic execution.
+
+\subsection{Research Gap Analysis}
+Table~\ref{tab:research_gap} contrasts Agentic Mesh with related system paradigms across core architectural dimensions.
+
+\begin{table}[t]
+\caption{Architectural Comparison Across System Classes}
+\label{tab:research_gap}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+\textbf{System Class} & \textbf{Topology} & \textbf{Relational} & \textbf{Offline} & \textbf{Causal Meta.} & \textbf{AI} & \textbf{Det. Valid.} \\
+\midrule
+Cloud RDBMS          & Centralized & Yes         & No      & Conditional   & No          & Yes \\
+P2P Key-Value        & Masterless  & No          & Yes     & Partial       & No          & No  \\
+CRDT Stores          & Masterless  & No          & Yes     & Yes           & No          & No  \\
+Gossip Log Systems   & Masterless  & No          & Partial & Partial       & No          & No  \\
+Text-to-SQL Agents   & Centralized & Yes         & No      & No            & Yes         & Partial \\
+\textbf{Agentic Mesh}& \textbf{Masterless} & \textbf{Yes} & \textbf{Yes} & \textbf{Yes} & \textbf{Yes} & \textbf{Yes} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% =========================================================================
+% III. SYSTEM MODEL AND PROBLEM STATEMENT
+% =========================================================================
+\section{System Model and Problem Statement}
+\label{sec:problem}
+
+\subsection{System and Network Model}
+Our environment consists of $K$ independent edge nodes $\mathcal{N} = \{n_1, n_2, \dots, n_K\}$ operating on an ad-hoc local area network. The system design relies on the following operational boundaries:
+\begin{itemize}
+    \item \textbf{Topology:} The mesh is entirely coordinator-free. There is no leader election, no primary replica, and no cloud sequencer.
+    \item \textbf{Network Assumptions:} We rely on asynchronous TCP message-passing. Because edge networks are inherently unstable, nodes must tolerate packet loss, high latency, and extended network splits. Peers find each other on the LAN via multicast DNS (mDNS).
+    \item \textbf{Storage Model:} Every node writes to its own local SQLite database file, strictly operating in Write-Ahead Logging (WAL) mode for concurrency and durability.
+    \item \textbf{Failure Model:} We assume a crash-recovery model where nodes can abruptly disconnect or reboot. SQLite's WAL ensures data files remain uncorrupted. We assume nodes are honest-but-fallible; preventing Byzantine actors is outside our current scope.
+\end{itemize}
+
+\subsection{Formal Requirements}
+We engineered the system to meet six specific operational criteria:
+\begin{itemize}
+    \item \textbf{R1 (Masterless Availability):} A peer must be able to read and write to its local database immediately, even if the network interface is physically disconnected.
+    \item \textbf{R2 (Local Relational Invariant Preservation):} A transaction cannot be committed unless it satisfies all schema constraints, including foreign keys, uniqueness, and custom domain rules.
+    \item \textbf{R3 (Causal Log Synchronization):} Gossip dissemination must include vector-clock metadata and unique transaction IDs so peers can detect duplicates and accurately catch up after a partition.
+    \item \textbf{R4 (Deterministic Validation Guardrails):} Direct API calls, incoming gossip transactions, and LLM-generated operations must all be verified by the exact same deterministic schema validator.
+    \item \textbf{R5 (Latency-Isolated AI Planning):} The heavy computational cost of parsing natural-language prompts must never block the execution of standard structured transactions.
+    \item \textbf{R6 (Zero-Cloud Operation):} From database writes to LLM inference, the entire stack must run on the local hardware.
+\end{itemize}
+
+% =========================================================================
+% IV. ARCHITECTURE
+% =========================================================================
+\section{System Architecture}
+\label{sec:architecture}
+
+To satisfy these requirements, we designed a modular stack that runs identically on every node. Fig.~\ref{fig:architecture} outlines how the database, validator, AI planner, and networking layers interact within and across peers.
+
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[
+    scale=1.1, transform shape,
+    box/.style={draw=cyan!80!black, fill=cyan!5, rounded corners=4pt, thick, align=center, inner sep=5pt, font=\sffamily\scriptsize},
+    aibox/.style={draw=purple!80!black, fill=purple!5, rounded corners=4pt, thick, align=center, inner sep=5pt, font=\sffamily\scriptsize},
+    dbbox/.style={draw=green!60!black, fill=green!5, rounded corners=4pt, thick, align=center, inner sep=5pt, font=\sffamily\scriptsize},
+    p2pbox/.style={draw=orange!80!black, fill=orange!8, rounded corners=4pt, thick, align=center, inner sep=6pt, font=\sffamily\scriptsize},
+    nodeframe/.style={draw=gray!50, fill=gray!3, rounded corners=6pt, dashed, inner sep=8pt},
+    arrow/.style={-{Stealth[scale=1.0]}, thick, draw=gray!70},
+    biarrow/.style={{Stealth[scale=1.1]}-{Stealth[scale=1.1]}, line width=1.5pt, draw=orange!85!black}
+]
+
+% ===== NODE ALPHA =====
+\node[box, fill=cyan!15, minimum width=6.2cm] (hdrA) {\textbf{Peer Node $\alpha$} \quad \scriptsize(TCP: 9001 $\mid$ WS: 3001)};
+\node[box, below=0.5cm of hdrA, xshift=-1.7cm, minimum width=2.5cm] (svA) {\textbf{Schema Validator}\\Deterministic Fast Path};
+\node[aibox, below=0.5cm of hdrA, xshift=1.7cm, minimum width=2.5cm] (aiA) {\textbf{Edge-AI Planner}\\Gemma via Ollama};
+\node[dbbox, below=0.5cm of svA, minimum width=2.5cm] (dbA) {\textbf{SQLite Engine (WAL)}\\+ \texttt{\_mesh\_log} Ledger};
+\node[p2pbox, below=0.5cm of dbA, xshift=1.7cm, minimum width=5.6cm] (p2pA) {\textbf{libp2p Transport + GossipSub}\\Topics: \texttt{mesh:transactions}, \texttt{mesh:sync}};
+
+\begin{scope}[on background layer]
+\node[nodeframe, fit=(hdrA)(svA)(aiA)(dbA)(p2pA)] (frameA) {};
+\end{scope}
+
+\draw[arrow] (hdrA.south -| svA.north) -- (svA.north);
+\draw[arrow, dashed] (hdrA.south -| aiA.north) -- (aiA.north);
+\draw[arrow] (svA) -- node[left, font=\tiny] {Commit} (dbA);
+\draw[arrow, dashed] (aiA) -- node[above, yshift=2pt, font=\tiny] {$\mathcal{M}_{\text{tool}}$ Ops} (svA);
+\draw[arrow] (dbA) -- (dbA |- p2pA.north);
+
+% ===== NODE BETA =====
+\node[box, fill=cyan!15, right=3.0cm of hdrA, minimum width=6.2cm] (hdrB) {\textbf{Peer Node $\beta$} \quad \scriptsize(TCP: 9002 $\mid$ WS: 3002)};
+\node[box, below=0.5cm of hdrB, xshift=-1.7cm, minimum width=2.5cm] (svB) {\textbf{Schema Validator}\\Deterministic Fast Path};
+\node[aibox, below=0.5cm of hdrB, xshift=1.7cm, minimum width=2.5cm] (aiB) {\textbf{Edge-AI Planner}\\Gemma via Ollama};
+\node[dbbox, below=0.5cm of svB, minimum width=2.5cm] (dbB) {\textbf{SQLite Engine (WAL)}\\+ \texttt{\_mesh\_log} Ledger};
+\node[p2pbox, below=0.5cm of dbB, xshift=1.7cm, minimum width=5.6cm] (p2pB) {\textbf{libp2p Transport + GossipSub}\\Topics: \texttt{mesh:transactions}, \texttt{mesh:sync}};
+
+\begin{scope}[on background layer]
+\node[nodeframe, fit=(hdrB)(svB)(aiB)(dbB)(p2pB)] (frameB) {};
+\end{scope}
+
+\draw[arrow] (hdrB.south -| svB.north) -- (svB.north);
+\draw[arrow, dashed] (hdrB.south -| aiB.north) -- (aiB.north);
+\draw[arrow] (svB) -- node[left, font=\tiny] {Commit} (dbB);
+\draw[arrow, dashed] (aiB) -- node[above, yshift=2pt, font=\tiny] {$\mathcal{M}_{\text{tool}}$ Ops} (svB);
+\draw[arrow] (dbB) -- (dbB |- p2pB.north);
+
+% ===== INTER-NODE =====
+\draw[biarrow] (p2pA) -- node[above, yshift=2pt, fill=white, draw=orange!80!black, rounded corners=3pt, thick, inner sep=3pt, align=center, font=\sffamily\bfseries\tiny, text=orange!90!black] {libp2p GossipSub Mesh\\(mDNS Discovery)} (p2pB);
+
+\end{tikzpicture}
+\caption{Agentic Mesh system architecture across two autonomous peers. Solid arrows indicate deterministic transaction paths; dashed arrows show decoupled AI planning flows.}
+\label{fig:architecture}
+\end{figure*}
+
+\subsection{Relational Persistence Layer}
+For local storage, we embedded SQLite into our Node.js runtime using \texttt{better-sqlite3}. When a peer starts up, it enforces three critical PRAGMA configurations:
+\begin{lstlisting}[language=SQL]
+PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
+PRAGMA synchronous = NORMAL;
+\end{lstlisting}
+Using WAL mode is necessary because it allows us to handle incoming read queries concurrently with a busy writer thread processing incoming gossip. We relax the synchronization guarantee to \texttt{NORMAL} because lazy checkpoint fsyncing reduces wear on edge flash memory while retaining reasonable crash resilience.
+
+The baseline database schema is shown in Listing~\ref{lst:schema_ddl}. We normalized the core tables into Third Normal Form (3NF) to prevent update anomalies across \texttt{categories}, \texttt{items}, and \texttt{suppliers}. We record every successful local mutation in an append-only table named \texttt{\_mesh\_log}, which serves as the authoritative replication ledger for the peer.
+
+\begin{lstlisting}[language=SQL, caption={Relational Schema and Mesh Ledger DDL}, label={lst:schema_ddl}]
+CREATE TABLE categories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  description TEXT
+);
+
+CREATE TABLE items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  category_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  price REAL NOT NULL CHECK(price > 0),
+  sku TEXT UNIQUE NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (category_id)
+    REFERENCES categories(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE suppliers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  contact_email TEXT
+);
+
+CREATE TABLE item_suppliers (
+  item_id INTEGER NOT NULL,
+  supplier_id INTEGER NOT NULL,
+  PRIMARY KEY (item_id, supplier_id),
+  FOREIGN KEY (item_id)
+    REFERENCES items(id) ON DELETE CASCADE,
+  FOREIGN KEY (supplier_id)
+    REFERENCES suppliers(id) ON DELETE CASCADE
+);
+
+CREATE TABLE _mesh_log (
+  id TEXT PRIMARY KEY,
+  operation TEXT NOT NULL,
+  table_name TEXT NOT NULL,
+  row_data TEXT NOT NULL,
+  vector_clock TEXT NOT NULL,
+  peer_id TEXT NOT NULL,
+  applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+\end{lstlisting}
+
+\subsection{Networking and Gossip Overlay}
+We wired the peers together over TCP using libp2p. The networking layer consists of:
+\begin{itemize}
+    \item \textbf{Transport \& Encryption:} Raw TCP sockets encrypted and authenticated locally via the Noise protocol (\texttt{libp2p-noise}).
+    \item \textbf{Stream Multiplexing:} The Mplex library to multiplex multiple virtual streams over a single connection.
+    \item \textbf{Discovery:} Multicast DNS (\texttt{libp2p-mdns}), which allows peers joining the LAN to automatically broadcast their presence without manual IP configuration.
+    \item \textbf{PubSub Engine:} A GossipSub mesh that handles message propagation across two dedicated topics: \texttt{mesh:transactions} for live writes and \texttt{mesh:sync} for partition recovery.
+\end{itemize}
+
+Because gossip meshes naturally echo messages, we implemented an LRU message cache with a capacity of 1000 UUIDs to drop redundant transaction broadcasts before they reach the validator.
+
+% =========================================================================
+% V. BIFURCATED TRANSACTION PROCESSING
+% =========================================================================
+\section{Bifurcated Transaction Processing}
+\label{sec:bifurcated}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+    scale=0.95, transform shape,
+    block/.style={draw=blue!70!black, fill=blue!5, rounded corners=3pt, thick, align=center, inner sep=4pt, font=\sffamily\scriptsize},
+    decision/.style={diamond, draw=purple!80!black, fill=purple!5, aspect=1.8, thick, align=center, inner sep=2pt, font=\sffamily\scriptsize},
+    arrow/.style={-{Stealth[scale=0.9]}, thick, draw=gray!80}
+]
+
+\node[block] (input) {Client Request};
+\node[decision, below=0.45cm of input] (router) {Input\\Type?};
+\node[block, left=0.6cm of router, yshift=-0.9cm, fill=green!5, draw=green!60!black] (fastpath) {\textbf{Deterministic Fast Path}\\Schema Validator\\Foreign Keys / Types / Unique};
+\node[block, right=0.6cm of router, yshift=-0.9cm, fill=purple!5, draw=purple!80!black] (aipath) {\textbf{Decoupled AI Path}\\Gemma via Ollama\\Tool Decomposition};
+
+\node[decision, below=0.6cm of fastpath] (checkvalid) {Schema\\Valid?};
+\node[block, below=0.6cm of checkvalid, fill=cyan!5, draw=cyan!80!black] (sqlite) {Atomic SQLite Write\\+ \texttt{\_mesh\_log} Ledger\\+ Vector Clock Step};
+\node[block, below=0.6cm of sqlite, fill=orange!5, draw=orange!80!black] (gossip) {GossipSub Broadcast\\(\texttt{mesh:transactions})};
+\node[block, right=0.5cm of checkvalid, fill=red!5, draw=red!80!black] (reject) {Reject Mutation\\Return Error};
+
+\draw[arrow] (input) -- (router);
+\draw[arrow] (router) -| node[above, font=\tiny] {JSON Object} (fastpath);
+\draw[arrow] (router) -| node[above, font=\tiny] {Natural Language} (aipath);
+\draw[arrow] (aipath) -- (fastpath);
+\draw[arrow] (fastpath) -- (checkvalid);
+\draw[arrow] (checkvalid) -- node[left, font=\tiny] {Yes} (sqlite);
+\draw[arrow] (checkvalid) -- node[above, font=\tiny] {No} (reject);
+\draw[arrow] (sqlite) -- (gossip);
+
+\end{tikzpicture}
+\caption{Bifurcated transaction execution flow. Structured operations follow deterministic validation, while natural-language requests are converted into bounded tool operations by the local LLM.}
+\label{fig:dual_pipeline}
+\end{figure}
+
+As shown in Fig.~\ref{fig:dual_pipeline}, the core of our latency isolation strategy is the bifurcated execution pipeline. We split traffic based on the shape of the request.
+
+\subsection{Deterministic Fast Path}
+If a request arrives as a structured JSON object containing a target table and data payload, our router skips the LLM entirely. The payload falls immediately into the deterministic schema validator, which performs five strict invariant checks against the local database:
+\begin{enumerate}
+    \item \textbf{Attribute Completeness:} Rejects the payload if it is missing any non-nullable schema attributes.
+    \item \textbf{Type Conformance:} Enforces primitive datatype matching (e.g., ensuring \texttt{price} $\in \mathbb{R}$ and not a string).
+    \item \textbf{Domain Bounds:} Checks payload values against SQLite \texttt{CHECK} constraints (e.g., \texttt{price} $> 0$).
+    \item \textbf{Referential Existence:} Queries local indexes to ensure locally referenced foreign keys actually exist before allowing the write.
+    \item \textbf{Uniqueness Pre-check:} Scans for conflicting unique keys (like an identical \texttt{sku}), safely ignoring self-rows during updates.
+\end{enumerate}
+
+Algorithm~\ref{alg:fast_path} outlines the exact logic we use to validate, commit, and broadcast these fast-path operations.
+
+\begin{algorithm}[t]
+\caption{Deterministic Fast-Path Commit and Propagation}
+\label{alg:fast_path}
+\begin{algorithmic}[1]
+\Require Mutation $\mathcal{O} = \langle \text{op}, \text{table}, \text{data} \rangle$, Peer ID $n_i$, Local DB $\mathcal{D}_i$, Clock $V_i$
+\Ensure Success flag $b \in \{\text{TRUE}, \text{FALSE}\}$, Transaction ID $\tau_{\text{id}}$
+\State $\mathcal{V} \gets \text{ValidateSchema}(\mathcal{O}.\text{op}, \mathcal{O}.\text{table}, \mathcal{O}.\text{data}, \mathcal{D}_i)$
+\If{$\mathcal{V}.\text{valid} = \text{FALSE}$}
+    \State \Return $\langle \text{FALSE}, \emptyset \rangle$
+\EndIf
+\State $\tau_{\text{id}} \gets \text{UUIDv4}()$
+\State $V_i[n_i] \gets V_i[n_i] + 1$
+\State \textbf{begin transaction}
+\State Execute parameterized SQL for $\mathcal{O}$ on $\mathcal{D}_i$
+\State INSERT into \texttt{\_mesh\_log} values $(\tau_{\text{id}}, \mathcal{O}.\text{op}, \mathcal{O}.\text{table}, \text{JSON}(\mathcal{O}.\text{data}), \text{JSON}(V_i), n_i)$
+\State \textbf{commit transaction}
+\State $\mathcal{E} \gets \langle \tau_{\text{id}}, \text{TRANSACTION}, n_i, \text{Timestamp}(), V_i, \mathcal{O} \rangle$
+\State $\text{GossipSub.publish}(\text{``mesh:transactions''}, \text{Encode}(\mathcal{E}))$
+\State \Return $\langle \text{TRUE}, \tau_{\text{id}} \rangle$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Decoupled AI Planning Path}
+When a user sends an unstructured natural-language prompt (like \textit{``Add 15 ergonomic mechanical keyboards under Electronics priced at \$120 each''}), the router forwards it to our AI Planner.
+
+We inject the current SQLite schema and a lightweight JSON snapshot of existing category IDs and suppliers directly into the system prompt. We then query a local Gemma 4 E2B model running through Ollama. Rather than risking raw SQL generation, we force the LLM to output a bounded set of relational operations:
+
+\begin{equation}
+\mathcal{M}_{\text{tool}} = \left\{
+\begin{aligned}
+&\text{INSERT}(\text{table}, \text{data}), \\
+&\text{UPDATE}(\text{table}, \text{data}), \\
+&\text{DELETE}(\text{table}, \text{data})
+\end{aligned}
+\right\}
+\end{equation}
+
+Once the executor receives this JSON array, it feeds each operation back into the deterministic fast path. This is our primary defense mechanism: if the LLM invents a non-existent category ID or tries to insert a duplicate SKU, the deterministic validator catches it and aborts the operation. Because the LLM sits off the critical path, the deterministic fast path remains available even if the Ollama service crashes; the node simply logs a warning and continues executing incoming fast-path gossip.
+
+% =========================================================================
+% VI. CAUSAL REPLICATION AND CONFLICT HANDLING
+% =========================================================================
+\section{Causal Replication and Conflict Handling}
+\label{sec:replication}
+
+\subsection{Causal Vector Clock Formalism}
+We use vector clocks to track the causal history of transactions across the mesh.
+
+\begin{definition}[Vector Clock]
+Each peer $n_i \in \mathcal{N}$ maintains a vector clock $V_i: \mathcal{N} \to \mathbb{N}_0$, where $V_i(n_j)$ denotes the number of logical mutations originated by peer $n_j$ that have been causally applied at peer $n_i$.
+\end{definition}
+
+\begin{definition}[Causal Precedence and Concurrency]
+For any two transaction vector clocks $V_A$ and $V_B$:
+\begin{align}
+V_A \le V_B &\iff \forall k \in \mathcal{N}, \; V_A(k) \le V_B(k) \\
+V_A < V_B &\iff (V_A \le V_B) \land (\exists k \in \mathcal{N}, \; V_A(k) < V_B(k)) \\
+V_A \parallel V_B &\iff \neg(V_A \le V_B) \land \neg(V_B \le V_A)
+\end{align}
+where $V_A \parallel V_B$ designates concurrent, uncoordinated mutations.
+\end{definition}
+
+\subsection{Remote Mutation Ingestion}
+When GossipSub delivers a remote transaction envelope $\mathcal{E} = \langle \tau_{\text{id}}, \text{type}, n_{\text{sender}}, t, V_{\text{remote}}, \mathcal{O} \rangle$ to peer $n_i$, we process it in three steps:
+\begin{enumerate}
+    \item \textbf{Idempotency Lookup:} The peer checks its local \texttt{\_mesh\_log} for the UUID $\tau_{\text{id}}$. If we have seen it before, we drop the message immediately.
+    \item \textbf{Deterministic Validation:} We run the mutation $\mathcal{O}$ through our standard schema validator against the current local state $\mathcal{D}_i$. If the constraints fail during replay, we reject the write and log a conflict.
+    \item \textbf{State Application:} If it passes, we execute the parameterized SQL, append the entry to the \texttt{\_mesh\_log}, and merge the remote vector clock with our local clock component-wise:
+\end{enumerate}
+
+\begin{equation}
+V_i \leftarrow V_i \sqcup V_{\text{remote}} = \left\langle \max(V_i(n_k), V_{\text{remote}}(n_k)) \right\rangle_{k=1}^K
+\end{equation}
+
+\subsection{Convergence Under Validated Replay}
+
+\begin{proposition}[State Convergence Under Validated Replay]
+\label{prop:validated-convergence}
+Let $D_i$ and $D_j$ denote the database states of peers $n_i$ and
+$n_j$. Assume that:
+\begin{enumerate}
+    \item both peers begin from an identical initial state $D_0$;
+    \item both peers successfully apply the same transaction set
+    $T = \{\tau_1,\tau_2,\ldots,\tau_m\}$;
+    \item every transaction in $T$ is applied at most once, enforced by
+    the transaction identifier constraint in \texttt{\_mesh\_log};
+    \item validation outcomes are identical across the two peers for
+    all transactions in $T$.
+\end{enumerate}
+Then the resulting database states are identical:
+\[
+D_i = D_j.
+\]
+\end{proposition}
+
+\begin{proof}
+Under the stated assumptions, both peers begin from the same state and
+apply the same deterministic parameterized database operations exactly
+once. Duplicate transaction application is prevented by the unique
+transaction identifier stored in \texttt{\_mesh\_log}. Therefore,
+deterministic replay of the same transaction sequence yields identical
+database states.
+\end{proof}
+
+\paragraph{Scope of the result}
+This proposition is strictly conditional. It proves that validated replay converges identically, but it does \textit{not} guarantee Strong Eventual Consistency for all possible concurrent writes. Two uncoordinated mutations might each pass validation locally on isolated peers, only to conflict when replayed against each other later. When this happens, our implementation rejects the conflicting remote write, causing the replicas to temporarily diverge until an administrator or application-level policy resolves the collision.
+
+\subsection{Conflict Handling and Consistency Limitations}
+\label{sec:conflict}
+To understand the limits of this design, consider a scenario where peer $n_A$ and peer $n_B$ are separated by a LAN partition:
+\begin{enumerate}
+    \item While partitioned, peer $n_A$ executes:
+    $\text{INSERT}(\text{items}, \{\text{sku: ``SKU-100''}, \text{price: 50}, \dots\})$.
+    Validation passes locally; transaction $\tau_A$ is committed to $\mathcal{D}_A$.
+    \item Concurrently, peer $n_B$ executes:
+    $\text{INSERT}(\text{items}, \{\text{sku: ``SKU-100''}, \text{price: 75}, \dots\})$.
+    Validation passes locally; transaction $\tau_B$ is committed to $\mathcal{D}_B$.
+    \item Here, $V_A \parallel V_B$. Upon network healing, GossipSub delivers $\tau_B$ to $n_A$ and $\tau_A$ to $n_B$.
+    \item When $n_A$ runs $\tau_B$ through its schema validator, the uniqueness check on \texttt{items.sku} fails because \texttt{``SKU-100''} is already in its SQLite file. Consequently, $n_A$ rejects $\tau_B$.
+    \item Symmetrically, $n_B$ rejects $\tau_A$ for the same reason.
+\end{enumerate}
+
+As a result, peer $n_A$ maintains the price at \$50 while peer $n_B$ holds the price at \$75. Because we lack a Last-Writer-Wins (LWW) resolver or a specialized CRDT merge strategy for relational keys, the two databases diverge on that specific record. Building a robust CRDT merge algebra that natively respects multi-table referential constraints is a complex problem that we leave for future research.
+
+\subsection{Partition Reconciliation Protocol}
+
+When a node powers back on or reconnects to the network, it needs to recover missed transactions. It starts by broadcasting its current vector clock on the \texttt{mesh:sync} topic. Any active peer that receives this request reads the clock, scans its local \texttt{\_mesh\_log}, and gathers all transactions possessing origin counters that exceed the reconnecting peer's known state.
+
+The active peer bundles these missing transactions into a synchronization response. As the reconnecting peer receives the delta, it feeds each transaction back through the exact same remote-ingestion pipeline used during live gossip: idempotency checks, deterministic schema validation, SQLite execution, and vector clock merging.
+
+It is important to note that this is a simple origin-counter log catch-up mechanism, not a comprehensive state-reconciliation algorithm. As demonstrated in Section~\ref{sec:conflict}, transactions that were committed during a network partition might still violate local invariants during replay, meaning that our catch-up protocol alone cannot prevent concurrent conflict divergence.
+
+\begin{algorithm}[t]
+\caption{Partition Synchronization and Catch-Up}
+\label{alg:partition-sync}
+\begin{algorithmic}[1]
+\Require Reconnecting peer $n_{rec}$ with clock $V_{rec}$
+\Require Online peer $n_{local}$ with ledger $L_{local}$
+\State Publish $\mathrm{SYNC\ REQUEST}(n_{rec},V_{rec})$
+       on \texttt{mesh:sync}
+\State $\Delta \gets \emptyset$
+\ForAll{$e \in L_{local}$}
+    \State Parse vector clock $V_e$ from $e$
+    \State $n_{src} \gets e.\mathrm{peer\_id}$
+    \If{$V_e(n_{src}) > V_{rec}(n_{src})$}
+        \State $\Delta \gets \Delta \cup \{e\}$
+    \EndIf
+\EndFor
+\State Send $\mathrm{SYNC\ RESPONSE}(n_{rec},\Delta)$
+\ForAll{$e \in \Delta$}
+    \State Apply $e$ using
+           $\mathrm{applyRemoteTransaction}(e)$
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+% =========================================================================
+% VII. SCHEMA INTEGRITY AND NORMALIZATION
+% =========================================================================
+\section{Schema Integrity and Normalization}
+\label{sec:schema}
+
+\subsection{Deterministic Invariant Enforcement}
+Table~\ref{tab:constraints} summarizes the relational constraints enforced deterministically by the JavaScript schema validator before any SQL operation is permitted.
+
+\begin{table}[t]
+\caption{Implemented Schema Constraint Matrix}
+\label{tab:constraints}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}llp{3.8cm}@{}}
+\toprule
+\textbf{Table Relation} & \textbf{Constraint Type} & \textbf{Formal Invariant} \\
+\midrule
+\texttt{categories}     & Non-Null Required        & $\text{name} \neq \emptyset$ \\
+                        & Entity Uniqueness        & $\forall r_1, r_2, \; r_1.\text{name} = r_2.\text{name} \implies r_1 = r_2$ \\
+\midrule
+\texttt{items}          & Non-Null Required        & $\text{category\_id}, \text{name}, \text{price}, \text{sku} \neq \emptyset$ \\
+                        & Domain Check             & $\text{price} > 0$ \\
+                        & Referential Integrity    & $\text{category\_id} \in \pi_{\text{id}}(\text{categories})$ \\
+                        & Entity Uniqueness        & $\forall r_1, r_2, \; r_1.\text{sku} = r_2.\text{sku} \implies r_1 = r_2$ \\
+\midrule
+\texttt{suppliers}      & Non-Null Required        & $\text{name} \neq \emptyset$ \\
+                        & Entity Uniqueness        & $\forall r_1, r_2, \; r_1.\text{name} = r_2.\text{name} \implies r_1 = r_2$ \\
+\midrule
+\texttt{item\_suppliers}& Non-Null Required        & $\text{item\_id}, \text{supplier\_id} \neq \emptyset$ \\
+                        & Referential Integrity    & $\text{item\_id} \in \pi_{\text{id}}(\text{items})$ \\
+                        & Referential Integrity    & $\text{supplier\_id} \in \pi_{\text{id}}(\text{suppliers})$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Relational Normalization Justification}
+
+We designed the schema structure in Third Normal Form (3NF). In the \texttt{items} table, all non-key attributes depend strictly on the \texttt{id} primary key. We map categorical and supplier data into distinct \texttt{categories} and \texttt{suppliers} tables, utilizing the \texttt{item\_suppliers} associative relation for the many-to-many link. We enforce this decomposition structurally to prevent update anomalies that typically plague denormalized key-value systems.
+
+It is important to clarify that our runtime schema validator does not dynamically prove that incoming data obeys 3NF. The validator's sole job is to execute concrete constraint checks---like ensuring a string fits a datatype, or a foreign key resolves to an existing parent row. We consider normalization a fundamental property of the schema design, whereas the runtime validator merely enforces the operational guardrails dictated by that design.
+
+\subsection{Advisory AI Normalization Audits}
+Because schema design can degrade as application requirements evolve, we built an asynchronous background audit agent. This agent periodically reads the DDL schema and a sample of recent \texttt{\_mesh\_log} transactions, asking the LLM if it detects any emerging transitive anomalies or optimization opportunities. We enforce a strict read-only boundary here: the LLM only generates advisory warnings and cannot execute \texttt{ALTER TABLE} statements or block live writes.
+
+% =========================================================================
+% VIII. IMPLEMENTATION
+% =========================================================================
+\section{System Implementation}
+\label{sec:implementation}
+
+We wrote the Agentic Mesh prototype entirely in Node.js using ES Modules. Table~\ref{tab:implementation} breaks down the specific library dependencies and subsystem layers we integrated.
+
+\begin{table}[t]
+\caption{Implementation Technology Stack}
+\label{tab:implementation}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{2.3cm}p{3.3cm}p{2.5cm}@{}}
+\toprule
+\textbf{Subsystem Layer} & \textbf{Component / Library} & \textbf{Operational Role} \\
+\midrule
+Embedded Storage         & \texttt{better-sqlite3} 13.0.3 & Synchronous SQLite C++ bindings \\
+P2P Network Core         & \texttt{libp2p} 3.3.8          & Modular peer transport lifecycle \\
+Transport Layer          & \texttt{@libp2p/tcp} 11.0.26   & TCP socket connections \\
+Transport Security       & \texttt{@chainsafe/} \texttt{libp2p-noise} 17.0.0 & Noise cryptographic handshake \\
+Stream Multiplexing      & \texttt{@libp2p/mplex} 12.0.29 & Stream sub-channel allocation \\
+Peer Discovery           & \texttt{@libp2p/mdns} 12.0.29  & Multicast DNS LAN discovery \\
+Gossip Protocol          & \texttt{@chainsafe/} \texttt{libp2p-gossipsub} 14.1.2 & Mesh topic dissemination \\
+AI Engine Interface      & \texttt{ollama} 0.6.3          & Local HTTP REST client \\
+Gateway \& API           & \texttt{express} 5.2.1, \texttt{ws} 8.21.3 & REST \& WebSocket telemetry \\
+Web Dashboard            & React 19.2.5, Vite 8.0.10      & Topology visualization UI \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+We divided the source code into five functional directories:
+\begin{itemize}
+    \item \texttt{src/db/}: Houses the SQLite initialization routines, the deterministic fast-path validator, and the vector-clock tracking logic.
+    \item \texttt{src/p2p/}: Configures the libp2p node, binds the GossipSub routers to the mesh topics, and handles mDNS discovery.
+    \item \texttt{src/agents/}: Contains the prompt-engineering pipeline, including the Router, Planner, and the HTTP wrapper for the local Ollama instance.
+    \item \texttt{src/utils/}: Provides the JSON envelope encoders, cryptographic UUID generators, and the LRU gossip deduplication cache.
+    \item \texttt{src/websocket/}: Broadcasts live telemetry (node status and log throughput) to a React-based force-directed topology dashboard.
+\end{itemize}
+
+% =========================================================================
+% IX. EVALUATION METHODOLOGY
+% =========================================================================
+\section{Evaluation Methodology and Experimental Design}
+\label{sec:evaluation}
+
+To rigorously characterize the performance limits and failure modes of Agentic Mesh, we formulated the experimental protocol detailed in this section.
+
+\subsection{Current Evaluation Status}
+
+We have prototyped and implemented the core mechanics: the bifurcated request router, the deterministic schema validator, the SQLite WAL integration, the GossipSub mesh, and the LLM tool boundary all operate as designed within our local test harness.
+
+Table~\ref{tab:evaluation-design} outlines the exact experimental matrix we intend to run. We have not yet executed these benchmarks across a large-scale cluster of heterogeneous edge hardware. We explicitly decline to report simulated or extrapolated metrics for throughput, P99 latency, or partition catch-up times. The experimental design below represents our forthcoming benchmarking protocol rather than completed empirical results.
+
+\begin{table*}[t]
+\caption{Evaluation Design Matrix}
+\label{tab:evaluation-design}
+\centering
+\small
+\begin{tabular}{p{3.0cm}p{2.8cm}p{6.2cm}p{4.5cm}}
+\toprule
+\textbf{Experiment} & \textbf{Variable} & \textbf{Procedure} & \textbf{Metrics} \\
+\midrule
+Fast-path latency &
+Workload size &
+Measure schema-validation, SQLite, and mesh-log execution times over repeated structured mutations &
+Mean, median, P95, P99 latency; TPS \\
+\addlinespace
+Gossip replication &
+Peer count &
+Broadcast validated transactions and record arrival and commitment timestamps at receiving peers &
+Propagation latency; message overhead \\
+\addlinespace
+Constraint interception &
+Invalid payload type &
+Inject invalid types, negative values, orphan foreign keys, duplicate keys, and missing fields &
+Rejection rate; rejection latency \\
+\addlinespace
+Partition recovery &
+Partition duration &
+Disconnect a peer, generate transactions, restore connectivity, and execute the catch-up protocol &
+Catch-up time; missing-entry count; post-recovery state comparison \\
+\addlinespace
+AI planning &
+Prompt complexity &
+Submit single-table and multi-table natural-language requests and measure planner execution separately from commit latency &
+Planning latency; tool validity rate \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+% =========================================================================
+% X. SECURITY AND THREAT MODEL
+% =========================================================================
+\section{Security and Threat Model}
+\label{sec:security}
+
+\subsection{Transport Cryptography and Channel Security}
+For wire-level security, we rely entirely on the Noise Protocol Framework built into \texttt{@chainsafe/libp2p-noise}. By executing an authenticated Diffie-Hellman key exchange during peer discovery, Noise encrypts all GossipSub traffic. This shields our local mesh from passive packet sniffers and basic man-in-the-middle tampering.
+
+\subsection{Structural Injection Resistance}
+We intentionally avoid executing raw SQL strings generated by the LLM. By forcing the language model to return JSON tool calls in the $\mathcal{M}_{\text{tool}}$ format, we substantially reduce the SQL-injection attack surface. We convert those structured operations directly into SQLite parameterized prepared statements, completely bypassing string-concatenation flaws.
+
+\subsection{Threat Model Boundaries and Limitations}
+We engineered this prototype for a \textbf{trusted-peer environment}. It is not Byzantine Fault Tolerant (BFT):
+\begin{itemize}
+    \item \textbf{Absence of Transaction Signatures:} We do not currently sign GossipSub message envelopes with asymmetric keys (like Ed25519). If an attacker breaches the LAN, they could forge transactions using another node's \texttt{peer\_id}.
+    \item \textbf{Semantic Sybil / Poisoning Attacks:} If an authorized peer runs modified client software, it can flood the mesh with operations that pass schema validation but destroy data (like issuing valid \texttt{DELETE} commands for every inventory item). Our deterministic validator enforces relational structure, not business-level authorization.
+\end{itemize}
+
+% =========================================================================
+% XI. DISCUSSION
+% =========================================================================
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Architectural Trade-offs: Masterless Decentralization}
+
+By abandoning the cloud coordinator, we built a system where nodes never block on external locks when processing local writes. While this architecture thrives in unstable edge networks, we consciously sacrificed global linearizability. Because the SQLite instances operate independently, we cannot provide distributed ACID guarantees for transactions spanning multiple peers. If a deployment strictly requires synchronized, cross-node atomic commits, our current peer-to-peer design is not sufficient.
+
+\subsection{Execution Decoupling and Latency Isolation}
+
+Isolating the inference latency of the language model was a critical design choice. If we placed the LLM on the synchronous write path, standard API traffic would stall behind GPU token generation. By routing unstructured prompts to a decoupled planner while sending structured JSON directly into the schema validator, we ensured the database always runs at the speed of SQLite and the local disk. Even if the local Ollama instance crashes, the node continues executing the fast-path gossip without interruption.
+
+\subsection{Deterministic and Probabilistic Components}
+
+Language models are inherently probabilistic; they guess the next best token. Relational databases are structurally deterministic; a foreign key either exists or it does not. We resolved this tension by explicitly stripping the LLM of execution authority. The model is allowed to interpret intent and propose an operation, but the JavaScript runtime validator makes the final, deterministic decision about whether that operation touches the disk.
+
+% =========================================================================
+% XII. LIMITATIONS
+% =========================================================================
+\section{Limitations}
+\label{sec:limitations}
+
+\begin{enumerate}
+    \item \textbf{Independent Storage Scope:} SQLite operates on local disk files. Distributed cross-peer relational joins and distributed aggregations across the mesh are not natively supported.
+    \item \textbf{Absence of Distributed ACID Transactions:} Multi-statement transactions spanning multiple peers are not coordinated atomically across the network.
+    \item \textbf{Concurrent Conflict Divergence:} When concurrent uncoordinated writes violate unique constraints or foreign keys, conflicting remote transactions are rejected locally, leading to state divergence until manual reconciliation.
+    \item \textbf{Informal CRDT Semantics:} Full relational state convergence across arbitrary concurrent mutations is not formally proven to constitute a Conflict-Free Replicated Data Type.
+    \item \textbf{Vector Clock Scalability:} In dense peer swarms ($K > 10^3$), vector clock arrays in message envelopes scale linearly with peer count, increasing wire overhead.
+    \item \textbf{LAN Operational Boundary:} Peer discovery currently relies on mDNS, confining automated discovery to single broadcast subnets unless explicit relay bootstrap nodes are provisioned.
+    \item \textbf{Absence of Cryptographic Envelope Signing:} Envelopes lack digital signatures, assuming a trusted local peer environment.
+\end{enumerate}
+
+% =========================================================================
+% XIII. CONCLUSION AND FUTURE WORK
+% =========================================================================
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+
+We built Agentic Mesh to prove that edge networks can maintain relational database integrity without relying on a central cloud coordinator. By networking independent SQLite databases over a libp2p GossipSub mesh and using vector clocks for causal tracking, we demonstrated a functional, zero-cloud architecture that survives network partitions.
+
+The most significant engineering outcome of this prototype is our bifurcated execution pipeline. We successfully integrated a local Gemma LLM for natural-language intent planning without sacrificing the low latency of standard structured writes. By constraining the LLM to output bounded tool operations and enforcing a deterministic validation layer prior to SQLite execution, we protected the local schema against defined constraint violations, though semantic hallucinations may still produce valid but unintended state mutations.
+
+However, the system is not finished. Our causal replication protocol handles partition catch-up and duplicate detection, but it does not achieve Strong Eventual Consistency. When uncoordinated concurrent writes violate unique relational constraints, the receiving nodes reject the conflicting data, leading to localized replica divergence. We also have not implemented asymmetric cryptographic signatures to prevent internal spoofing.
+
+Our next steps include executing the large-scale benchmark suite described in our evaluation methodology. We also plan to investigate CRDT merge semantics capable of preserving relational invariants, implement Ed25519 transaction signing, and develop deterministic reconciliation strategies for concurrent schema conflicts.
+
+\section*{Acknowledgment}
+The author thanks the open-source contributors of libp2p, better-sqlite3, and the Ollama community for foundational software libraries.
+
+\balance
+\bibliographystyle{IEEEtran}
+\bibliography{\jobname}
+
+\end{document}

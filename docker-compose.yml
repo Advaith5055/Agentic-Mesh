@@ -1,0 +1,80 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: agentic-mesh-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - mesh-net
+
+  node-alpha:
+    build: .
+    container_name: mesh-node-alpha
+    environment:
+      NODE_NAME: alpha
+      P2P_PORT: "9001"
+      WS_PORT: "3001"
+      DB_PATH: /app/data/mesh.db
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: gemma3:4b
+    ports:
+      - "9001:9001"
+      - "3001:3001"
+    volumes:
+      - node_alpha_data:/app/data
+    depends_on:
+      - ollama
+    networks:
+      - mesh-net
+
+  node-bravo:
+    build: .
+    container_name: mesh-node-bravo
+    environment:
+      NODE_NAME: bravo
+      P2P_PORT: "9002"
+      WS_PORT: "3002"
+      DB_PATH: /app/data/mesh.db
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: gemma3:4b
+    ports:
+      - "9002:9002"
+      - "3002:3002"
+    volumes:
+      - node_bravo_data:/app/data
+    depends_on:
+      - ollama
+    networks:
+      - mesh-net
+
+  node-charlie:
+    build: .
+    container_name: mesh-node-charlie
+    environment:
+      NODE_NAME: charlie
+      P2P_PORT: "9003"
+      WS_PORT: "3003"
+      DB_PATH: /app/data/mesh.db
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: gemma3:4b
+    ports:
+      - "9003:9003"
+      - "3003:3003"
+    volumes:
+      - node_charlie_data:/app/data
+    depends_on:
+      - ollama
+    networks:
+      - mesh-net
+
+volumes:
+  ollama_data:
+  node_alpha_data:
+  node_bravo_data:
+  node_charlie_data:
+
+networks:
+  mesh-net:
+    driver: bridge
