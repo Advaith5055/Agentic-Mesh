@@ -861,17 +861,54 @@ Communication interfaces in Agentic Mesh are divided into three protocols:
 \end{table}
 
 \section{Code Snippets}
+The following listings detail the core implementations across the key subsystems of Agentic Mesh, encompassing peer-to-peer networking, server-side role security, schema allowlists, atomic transactions, vector clocks, multi-agent coordination, and local LLM reasoning.
 
-\subsection{Libp2p Bootstrap Connection \& Keep-Alive}
-Listing 6.1 demonstrates the periodic keep-alive dialing algorithm ensuring fixed bootstrap peers remain connected across intermittent network fluctuations.
+\subsection{Libp2p Mesh Node Configuration \& Network Stack}
+Listing 6.1 illustrates the modular instantiation of the libp2p peer node. The node configures TCP multiaddress transport, Noise protocol cryptographic encryption, Mplex stream multiplexing, mDNS local peer discovery, and GossipSub pub/sub message routing.
+\begin{lstlisting}[language=JavaScript,caption={Libp2p Node Initialization (src/p2p/node.js)}]
+import { createLibp2p } from 'libp2p';
+import { tcp } from '@libp2p/tcp';
+import { mdns } from '@libp2p/mdns';
+import { noise } from '@chainsafe/libp2p-noise';
+import { mplex } from '@libp2p/mplex';
+import { gossipsub } from '@libp2p/gossipsub';
+import { identify } from '@libp2p/identify';
+
+export async function createMeshNode(port) {
+  return await createLibp2p({
+    addresses: {
+      listen: [`/ip4/0.0.0.0/tcp/${port}`]
+    },
+    transports: [tcp()],
+    connectionEncrypters: [noise()],
+    streamMuxers: [mplex()],
+    peerDiscovery: [mdns()],
+    services: {
+      identify: identify(),
+      pubsub: gossipsub({
+        emitSelf: false,
+        allowPublishToZeroTopicPeers: true,
+        floodPublish: true,
+        fallbackToFloodsub: true,
+        D: 1, Dlo: 1, Dhi: 10, Dscore: 0, Dout: 0
+      })
+    }
+  });
+}
+\end{lstlisting}
+
+\subsection{Resilient Bootstrap Peer Discovery and Keep-Alive}
+Listing 6.2 demonstrates the periodic keep-alive dialing algorithm ensuring fixed bootstrap peers remain connected across intermittent network fluctuations and physical link drops.
 \begin{lstlisting}[language=JavaScript,caption={Bootstrap Peer Keep-Alive (src/p2p/discovery.js)}]
 export function keepBootstrapPeers(node, addrs, { intervalMs = 15000 } = {}) {
   const targets = (addrs || []).map(a => a.trim()).filter(Boolean);
   const ipOf = (addr) => /^\/ip[46]\/([^/]+)\//.exec(addr)?.[1];
 
   const tick = async () => {
-    const connections = typeof node.getConnections === 'function' ? node.getConnections() : [];
+    const connections = typeof node.getConnections === 'function' 
+      ? node.getConnections() : [];
     const connectedIps = new Set(connections.map(c => ipOf(c.remoteAddr.toString())));
+
     for (const addr of targets) {
       if (connectedIps.has(ipOf(addr))) continue;
       try {
@@ -891,11 +928,13 @@ export function keepBootstrapPeers(node, addrs, { intervalMs = 15000 } = {}) {
 }
 \end{lstlisting}
 
-\subsection{Role-Based State Machine \& Authorization Enforcement}
-Listing 6.2 illustrates how the backend verifies node role authorizations before task planning or execution, rejecting invalid attempts with structured HTTP 403 responses.
-\begin{lstlisting}[language=JavaScript,caption={Role Authorization Enforcement (src/mesh/workflow-service.js)}]
+\subsection{Server-Derived Role Authorization Guard \& Audit Logging}
+Listing 6.3 illustrates how the backend enforces node-role authorizations before task planning or execution, rejecting invalid privileges with structured HTTP 403 responses and logging immutable audit entries.
+\begin{lstlisting}[language=JavaScript,caption={Role Authorization Guard (src/mesh/workflow-service.js)}]
 export function assertNodeRole(db, nodeId, allowedRoles, actionName, options = {}) {
-  const role = options.role || getNodeRole(db, nodeId) || (nodeId === config.NODE_NAME ? config.NODE_ROLE : null);
+  const role = options.role 
+    || getNodeRole(db, nodeId) 
+    || (nodeId === config.NODE_NAME ? config.NODE_ROLE : null);
   const normalizedAllowed = allowedRoles.concat(['peer']);
 
   if (!role || !normalizedAllowed.includes(role)) {
@@ -920,8 +959,89 @@ export function assertNodeRole(db, nodeId, allowedRoles, actionName, options = {
 }
 \end{lstlisting}
 
-\subsection{Vector Clock Causal Tracking and Replication}
-Listing 6.3 shows the vector clock implementation that increments local sequence numbers and merges remote vector clocks element-wise.
+\subsection{Strict Schema Allowlist Validation Engine}
+Listing 6.4 depicts the pre-execution schema validator that checks target tables and columns against allowlists, verifies foreign-key references in SQLite, and rejects unauthorized SQL mutations before they can touch persistent storage.
+\begin{lstlisting}[language=JavaScript,caption={Schema Allowlist Validator (src/db/schema-validator.js)}]
+export function validateAllowlist(tableName, columns = []) {
+  if (!ALLOWED_TABLES.has(tableName)) {
+    return { valid: false, error: `Table '${tableName}' is not in allowed tables list.` };
+  }
+  const allowed = ALLOWED_COLUMNS[tableName];
+  for (const col of columns) {
+    if (!allowed.has(col)) {
+      return { valid: false, error: `Column '${col}' is not allowed on table '${tableName}'.` };
+    }
+  }
+  return { valid: true };
+}
+
+export function validateTransaction(operation, tableName, data, db) {
+  if (!ALLOWED_OPERATIONS.has(operation)) {
+    return { valid: false, errors: [`Operation '${operation}' is not supported.`] };
+  }
+  const allowlistCheck = validateAllowlist(tableName, Object.keys(data));
+  if (!allowlistCheck.valid) return { valid: false, errors: [allowlistCheck.error] };
+
+  const rules = SCHEMA_RULES[tableName];
+  if (!rules) return { valid: false, errors: [`Table '${tableName}' not in schema rules.`] };
+
+  // Referential Integrity: Validate Foreign Keys in SQLite
+  for (const fk of rules.foreignKeys || []) {
+    if (data[fk.field] !== undefined && data[fk.field] !== null) {
+      const exists = db.prepare(`SELECT 1 FROM ${fk.refTable} WHERE ${fk.refField} = ?`)
+        .get(data[fk.field]);
+      if (!exists) {
+        return { valid: false, errors: [`FK violation: ${fk.field} -> ${fk.refTable}.${fk.refField}`] };
+      }
+    }
+  }
+  return { valid: true, errors: [] };
+}
+\end{lstlisting}
+
+\subsection{Atomic Transaction Execution \& Mesh Ledger Appending}
+Listing 6.5 demonstrates the atomic mutation engine that wraps schema checks, raw database updates, immutable \texttt{\_mesh\_log} entries, and vector clock advancements inside a single SQLite transaction, rolling back completely on any failure.
+\begin{lstlisting}[language=JavaScript,caption={Atomic Transaction Execution (src/db/mutation.js)}]
+export function executeMutation(db, syncEngine, mutation, meta = {}) {
+  const { operation, data } = mutation;
+  const tableName = mutation.table || mutation.tableName;
+
+  // 1. Origin Policy and Allowlist Verification
+  const policy = checkOriginPolicy(meta.origin, [{ operation, table: tableName, data }]);
+  if (!policy.valid) return { success: false, errors: policy.errors };
+
+  const allowCheck = validateAllowlist(tableName, Object.keys(data));
+  if (!allowCheck.valid) return { success: false, errors: [allowCheck.error] };
+
+  // 2. Structural Schema & Foreign Key Validation
+  const validation = validateTransaction(operation, tableName, data, db);
+  if (!validation.valid) return { success: false, errors: validation.errors };
+
+  // Save backup of vector clock for rollback safety
+  const clock = syncEngine?.getVectorClock ? syncEngine.getVectorClock() : null;
+  const clockBackup = clock ? { ...clock.clock } : null;
+
+  try {
+    let rowId, envelope;
+    db.transaction(() => {
+      // 3. Raw SQL Write Execution
+      const writeResult = executeRawWrite(db, operation, tableName, data);
+      rowId = writeResult?.lastInsertRowid;
+
+      // 4. Immutable Mesh Log Entry & Envelope Construction
+      envelope = syncEngine.recordLocalWrite(db, operation, tableName, data, meta);
+    })();
+
+    return { success: true, rowId, envelope, errors: [] };
+  } catch (err) {
+    if (clock && clockBackup) clock.clock = clockBackup; // Rollback clock
+    return { success: false, errors: [err.message] };
+  }
+}
+\end{lstlisting}
+
+\subsection{Causal Vector Clock Algebra \& Divergence Detection}
+Listing 6.6 shows the vector clock implementation that increments local sequence numbers, checks causal precedence, and merges remote vector clocks element-wise ($V_{\text{local}}[i] \leftarrow \max(V_{\text{local}}[i], V_{\text{remote}}[i])$).
 \begin{lstlisting}[language=JavaScript,caption={Vector Clock Causal Algebra (src/db/sync.js)}]
 export class VectorClock {
   constructor(initial = {}) {
@@ -932,14 +1052,16 @@ export class VectorClock {
     return this;
   }
   merge(otherClock) {
-    const incoming = otherClock instanceof VectorClock ? otherClock.clock : (otherClock || {});
+    const incoming = otherClock instanceof VectorClock 
+      ? otherClock.clock : (otherClock || {});
     for (const [peer, seq] of Object.entries(incoming)) {
       this.clock[peer] = Math.max(this.clock[peer] || 0, Number(seq) || 0);
     }
     return this;
   }
   isNewerThan(otherClock) {
-    const other = otherClock instanceof VectorClock ? otherClock.clock : (otherClock || {});
+    const other = otherClock instanceof VectorClock 
+      ? otherClock.clock : (otherClock || {});
     let hasStrictlyGreater = false;
     for (const [peer, seq] of Object.entries(this.clock)) {
       if (seq < (other[peer] || 0)) return false;
@@ -948,6 +1070,97 @@ export class VectorClock {
     return hasStrictlyGreater;
   }
   toJSON() { return { ...this.clock }; }
+}
+\end{lstlisting}
+
+\subsection{Origin-Based Blast-Radius Mutation Policy}
+Listing 6.7 demonstrates the origin policy engine constraining write permissions based on the origin source of the mutation, preventing untrusted AI lanes from mutating restricted tables.
+\begin{lstlisting}[language=JavaScript,caption={Origin Security Policy (src/db/policy.js)}]
+export const Origin = {
+  API: 'api', NL: 'nl', VISION: 'vision', OBSERVER: 'observer'
+};
+
+export const ORIGIN_POLICY = {
+  [Origin.API]:      { operations: new Set(['INSERT', 'UPDATE', 'DELETE']), tables: new Set(DATA_TABLES) },
+  [Origin.NL]:       { operations: new Set(['INSERT', 'UPDATE', 'DELETE']), tables: new Set(DATA_TABLES) },
+  [Origin.VISION]:   { operations: new Set(['INSERT', 'UPDATE']), tables: new Set(DATA_TABLES), maxOps: 20, requiresEvidence: true },
+  [Origin.OBSERVER]: { operations: new Set(['INSERT']), tables: new Set(['observations']), producerMustMatch: true }
+};
+
+export function checkOriginPolicy(origin = 'api', mutations, ctx = {}) {
+  const policy = ORIGIN_POLICY[origin] || ORIGIN_POLICY[Origin.API];
+  for (const op of mutations) {
+    if (!policy.operations.has(op.operation)) {
+      return { valid: false, errors: [`Origin '${origin}' not permitted for '${op.operation}'`] };
+    }
+    if (!policy.tables.has(op.table || op.tableName)) {
+      return { valid: false, errors: [`Table '${op.table}' out of scope for origin '${origin}'`] };
+    }
+  }
+  return { valid: true, errors: [] };
+}
+\end{lstlisting}
+
+\subsection{Inter-Role Mesh Agent Coordination Protocol}
+Listing 6.8 illustrates how the \texttt{MeshCoordinator} on Router nodes delegates planning tasks to remote Planner peers over GossipSub, correlating requests with unique IDs and managing timeout intervals.
+\begin{lstlisting}[language=JavaScript,caption={Inter-Role P2P Task Delegation (src/agents/coordinator.js)}]
+export async function delegatePlanning(plannerPeer, prompt, timeoutMs = 25000) {
+  const requestId = uuidv4();
+  logger.ai(`[Router] Delegating planning to Planner ${plannerPeer.peerId.slice(0, 12)}... [reqId:${requestId}]`);
+
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      this.pendingPlanRequests.delete(requestId);
+      resolve({
+        success: false, operations: [],
+        error: `Timeout (${timeoutMs}ms) waiting for PLAN_RESPONSE [reqId:${requestId}]`
+      });
+    }, timeoutMs);
+
+    this.pendingPlanRequests.set(requestId, { resolve, timer });
+
+    const payload = createPlanRequest({
+      requestId, prompt, requesterPeerId: this.peerId,
+      targetPeerId: plannerPeer.peerId, timestamp: Date.now()
+    });
+
+    const envelope = createEnvelope(MessageType.PLAN_REQUEST, payload, this.peerId);
+    publishControl(this.node, envelope).catch((err) => {
+      clearTimeout(timer);
+      this.pendingPlanRequests.delete(requestId);
+      resolve({ success: false, operations: [], error: err.message });
+    });
+  });
+}
+\end{lstlisting}
+
+\subsection{Localized LLM Prompt Decomposition and Plan Extraction}
+Listing 6.9 demonstrates how the Planner node queries localized Ollama instances with temperature constraints, parses generated responses, and extracts validated structured JSON operation graphs.
+\begin{lstlisting}[language=JavaScript,caption={Local LLM Intent Parsing (src/agents/agent-chat.js)}]
+export async function generatePlanFromPrompt(userPrompt, db) {
+  const systemPrompt = `You are an autonomous database planner. Given the schema and request, return ONLY a valid JSON array of SQL operations: [{"operation": "INSERT"|"UPDATE"|"DELETE", "table": "...", "data": {...}}].`;
+  
+  const rawResponse = await askModel(userPrompt, {
+    model: config.OLLAMA_MODEL, // e.g. qwen2.5-coder:1.5b
+    options: {
+      num_ctx: config.OLLAMA_NUM_CTX,
+      num_predict: 256,
+      temperature: 0.1 // Low temperature for deterministic output
+    }
+  });
+
+  // Extract JSON operation array using regex boundary matcher
+  const arrayMatch = rawResponse.match(/\[\s*\{[\s\S]*\}\s*\]/);
+  if (!arrayMatch) {
+    throw new Error('LLM output did not contain valid operation graph');
+  }
+
+  const operations = JSON.parse(arrayMatch[0]);
+  const validation = validateModelPlan(operations);
+  if (!validation.valid) {
+    throw new Error(`Plan failed validation: ${validation.errors.join(', ')}`);
+  }
+  return validation.operations;
 }
 \end{lstlisting}
 
