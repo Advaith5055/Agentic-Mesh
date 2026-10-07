@@ -4,7 +4,6 @@
 
 import * as readline from 'node:readline';
 import chalk from 'chalk';
-import { logger } from '../utils/logger.js';
 import { config } from '../utils/config.js';
 
 /**
@@ -26,12 +25,11 @@ export function startCLI(context) {
     node,
     db,
     peerRegistry,
-    broadcastTransaction,
     executeOperations,
     planOperations,
     auditRecentTransactions,
-    routeTask,
     executeSingleTransaction,
+    requestSync,
     wss // Passed to allow graceful shutdown
   } = context;
 
@@ -50,6 +48,7 @@ export function startCLI(context) {
 ╚═══════════════════════════════════════════════╝
 `));
   console.log(chalk.bold.green(`➤ Node Name: ${config.NODE_NAME}`));
+  console.log(chalk.bold.green(`➤ Node Role: ${config.NODE_ROLE}`));
   console.log(chalk.bold.green(`➤ Peer ID:   ${node && node.peerId ? node.peerId.toString() : 'N/A'}`));
   console.log('');
   console.log(chalk.yellow('Available Commands:'));
@@ -66,7 +65,7 @@ export function startCLI(context) {
   console.log('');
 
   // 3. Set prompt
-  rl.setPrompt(chalk.blueBright(`[${config.NODE_NAME}] > `));
+  rl.setPrompt(chalk.blueBright(`[${config.NODE_NAME}:${config.NODE_ROLE}] > `));
   rl.prompt();
 
   // 4. Handle commands
@@ -92,10 +91,12 @@ export function startCLI(context) {
           }
           try {
             const payload = JSON.parse(argsString);
-            const routedTask = await routeTask(payload);
-            const txResult = await executeSingleTransaction(routedTask);
-            await broadcastTransaction(txResult);
-            console.log(chalk.green('✔ Transaction proposed and executed successfully.'), txResult);
+            const txResult = await executeSingleTransaction(payload);
+            if (txResult.success) {
+              console.log(chalk.green('✔ Transaction proposed and executed successfully.'), txResult);
+            } else {
+              console.log(chalk.red('✘ Transaction rejected:'), txResult.errors?.join(' | '));
+            }
           } catch (err) {
             console.log(chalk.red(`✘ Failed to propose transaction: ${err.message}`));
           }
@@ -110,30 +111,40 @@ export function startCLI(context) {
           console.log(chalk.yellow('⌛ Planning operations using AI...'));
           try {
             const plan = await planOperations(argsString);
-            console.log(chalk.cyan('Planned Operations:\n'), JSON.stringify(plan, null, 2));
+            if (!plan.success) {
+              console.log(chalk.red(`✘ AI planning failed: ${plan.error || 'Unknown error'}`));
+              break;
+            }
+            console.log(chalk.cyan('Planned Operations:\n'), JSON.stringify(plan.operations, null, 2));
             
             console.log(chalk.yellow('⌛ Executing operations...'));
-            const results = await executeOperations(plan);
+            const results = await executeOperations(plan.operations);
             console.log(chalk.green('✔ Execution Results:\n'), JSON.stringify(results, null, 2));
           } catch (err) {
             console.log(chalk.red(`✘ AI processing failed: ${err.message}`));
           }
           break;
 
-        case 'bad':
+        case 'bad': {
           // Generate deliberately malformed payload
           const badPayload = {
             table: 'items',
             operation: 'INSERT',
             data: { category_id: 999, name: 'Bad Item', price: -5, sku: 'INVALID' }
           };
-          console.log(chalk.yellow('Executing bad payload with orphaned FK and invalid data...'));
+          console.log(chalk.yellow('Executing bad payload with orphaned FK and invalid price...'));
           try {
-            await executeSingleTransaction(badPayload);
+            const badRes = await executeSingleTransaction(badPayload);
+            if (!badRes.success) {
+              console.log(chalk.green('✔ Error correctly caught by transaction execution:'), badRes.errors?.join(' | '));
+            } else {
+              console.log(chalk.red('✘ Unexpected success on bad payload'));
+            }
           } catch (err) {
-            console.log(chalk.red('✔ Error correctly caught by transaction execution:'), err.message);
+            console.log(chalk.green('✔ Error correctly caught:'), err.message);
           }
           break;
+        }
 
         case 'peers':
           // List discovered peers
@@ -145,6 +156,33 @@ export function startCLI(context) {
             }
           } else {
             console.log(chalk.yellow('Peer registry is not available.'));
+          }
+          break;
+
+        case 'connect':
+        case 'dial':
+          if (!argsString) {
+            console.log(chalk.red('Usage: connect <multiaddr or IP:port>'));
+            console.log(chalk.gray('Example: connect /ip4/192.168.1.15/tcp/9003/p2p/12D3KooW...'));
+            console.log(chalk.gray('Example: connect 192.168.1.15:9003'));
+            break;
+          }
+          try {
+            let targetAddr = argsString.trim();
+            if (targetAddr.includes(':') && !targetAddr.startsWith('/')) {
+              const [ip, port] = targetAddr.split(':');
+              targetAddr = `/ip4/${ip}/tcp/${port}`;
+            }
+            console.log(chalk.yellow(`⌛ Dialing peer ${targetAddr}...`));
+            if (node && typeof node.dial === 'function') {
+              const { multiaddr } = await import('@multiformats/multiaddr');
+              await node.dial(multiaddr(targetAddr));
+              console.log(chalk.green(`✔ Connected successfully to ${targetAddr}!`));
+            } else {
+              console.log(chalk.red('✘ Node dial service not available'));
+            }
+          } catch (err) {
+            console.log(chalk.red(`✘ Dial failed: ${err.message}`));
           }
           break;
 
@@ -168,16 +206,16 @@ export function startCLI(context) {
 
         case 'sync':
           // Force sync with peers
-          console.log(chalk.yellow('Broadcasting SYNC_REQUEST...'));
+          console.log(chalk.yellow('Broadcasting SYNC_REQUEST to mesh peers...'));
           try {
-            // Assume the vector clock is tracked somewhere, or handled internally by broadcastTransaction
-            await broadcastTransaction({
-              type: 'SYNC_REQUEST',
-              timestamp: Date.now()
-            });
-            console.log(chalk.green('✔ Sync request broadcasted.'));
+            if (typeof requestSync === 'function') {
+              await requestSync();
+              console.log(chalk.green('✔ Sync request broadcasted.'));
+            } else {
+              console.log(chalk.yellow('Sync function not available in CLI context.'));
+            }
           } catch (err) {
-            console.log(chalk.red('✘ Failed to sync:'), err.message);
+            console.log(chalk.red(`✘ Failed to sync: ${err.message}`));
           }
           break;
 
@@ -197,6 +235,7 @@ export function startCLI(context) {
           // Show node info
           console.log(chalk.cyan('\n--- Node Status ---'));
           console.log(`Node Name:    ${config.NODE_NAME}`);
+          console.log(`Node Role:    ${config.NODE_ROLE}`);
           console.log(`Peer ID:      ${node && node.peerId ? node.peerId.toString() : 'N/A'}`);
           
           if (node && typeof node.getMultiaddrs === 'function') {
@@ -212,7 +251,7 @@ export function startCLI(context) {
             try {
               const count = db.prepare('SELECT COUNT(*) as c FROM items').get().c;
               console.log(`Items count:  ${count}`);
-            } catch (e) {}
+            } catch (_e) {}
           }
           console.log('');
           break;

@@ -69,11 +69,33 @@ services:
     networks:
       - mesh-net
 
+  node-delta:
+    build: .
+    container_name: mesh-node-delta
+    environment:
+      NODE_NAME: delta
+      NODE_ROLE: ai-agent
+      P2P_PORT: "9004"
+      WS_PORT: "3004"
+      DB_PATH: /app/data/mesh.db
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: agentic-mesh-coder
+    ports:
+      - "9004:9004"
+      - "3004:3004"
+    volumes:
+      - node_delta_data:/app/data
+    depends_on:
+      - ollama
+    networks:
+      - mesh-net
+
 volumes:
   ollama_data:
   node_alpha_data:
   node_bravo_data:
   node_charlie_data:
+  node_delta_data:
 
 networks:
   mesh-net:

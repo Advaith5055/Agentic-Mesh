@@ -41,12 +41,12 @@ Return JSON: { "valid": true/false, "issues": [{ "index": N, "reasoning": "...",
         
         try {
             result = JSON.parse(rawResponse);
-        } catch (e) {
+        } catch {
             const jsonMatch = rawResponse.match(/\{\s*"valid".*\}/s);
             if (jsonMatch) {
                 try {
                     result = JSON.parse(jsonMatch[0]);
-                } catch (e2) {
+                } catch {
                     return { valid: false, issues: [{ index: -1, reasoning: 'Failed to parse AI response JSON' }] };
                 }
             } else {
@@ -89,7 +89,7 @@ ${JSON.stringify(logs)}`;
         let issues = [];
         try {
             issues = JSON.parse(rawResponse);
-        } catch(e) {
+        } catch {
             const match = rawResponse.match(/\[\s*\{.*\}\s*\]/s);
             if (match) {
                 issues = JSON.parse(match[0]);

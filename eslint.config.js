@@ -5,9 +5,24 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'data', 'scratch', 'node_modules', 'frontend copy/**', 'dashboard-backup*/**', 'data-backup*/**', '**/.*', '**/__MACOSX/**']),
   {
-    files: ['**/*.{js,jsx}'],
+    files: ['**/*.js'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      }
+    },
+    rules: {
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
+      'no-empty': ['warn', { allowEmptyCatch: true }],
+      'no-useless-assignment': 'warn',
+      'no-case-declarations': 'warn'
+    }
+  },
+  {
+    files: ['**/*.jsx'],
     extends: [
       js.configs.recommended,
       reactHooks.configs.flat.recommended,
@@ -17,5 +32,10 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
+      'no-empty': ['warn', { allowEmptyCatch: true }],
+      'react-hooks/exhaustive-deps': 'warn'
+    }
   },
 ])

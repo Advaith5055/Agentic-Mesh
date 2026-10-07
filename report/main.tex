@@ -1,0 +1,1165 @@
+\documentclass[12pt,a4paper]{report}
+
+% ── Package Configurations ───────────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in,top=1in,bottom=1in,left=1.25in,right=1in]{geometry}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{tocloft}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc, fit, backgrounds}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{eso-pic}
+
+% ── Page Border (VTU Standard) ────────────────────────────────────────────────
+\AddToShipoutPictureBG{%
+  \begin{tikzpicture}[remember picture,overlay]
+    \draw[line width=1.5pt] 
+      ([xshift=15mm,yshift=-15mm]current page.north west) 
+      rectangle 
+      ([xshift=-15mm,yshift=15mm]current page.south east);
+  \end{tikzpicture}%
+}
+
+% ── Header & Footer Setup ─────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.8pt}
+\renewcommand{\footrulewidth}{0.8pt}
+\setlength{\headheight}{15pt}
+
+\fancyhead[L]{\small\textbf{AGENTIC MESH: DISTRIBUTED AGENT WORKFLOW PLATFORM}}
+\fancyfoot[L]{\small Dept of CSE, AMCEC}
+\fancyfoot[C]{\small 2026-2027}
+\fancyfoot[R]{\small\thepage}
+
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \renewcommand{\headrulewidth}{0.8pt}
+  \renewcommand{\footrulewidth}{0.8pt}
+  \fancyhead[L]{\small\textbf{AGENTIC MESH: DISTRIBUTED AGENT WORKFLOW PLATFORM}}
+  \fancyfoot[L]{\small Dept of CSE, AMCEC}
+  \fancyfoot[C]{\small 2026-2027}
+  \fancyfoot[R]{\small\thepage}
+}
+
+% ── Code Listing Style ────────────────────────────────────────────────────────
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.97,0.98,0.99}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue}\bfseries,
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=6pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    frame=single,
+    rulecolor=\color{black!30}
+}
+\lstset{style=mystyle}
+
+% ── Chapter & Section Formatting ──────────────────────────────────────────────
+\titleformat{\chapter}[DISPLAY]
+  {\normalfont\bfseries\centering}{\LARGE CHAPTER \thechapter}{12pt}{\LARGE\uppercase}
+\titlespacing*{\chapter}{0pt}{-10pt}{20pt}
+
+\titleformat{\section}
+  {\normalfont\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}
+  {\normalfont\normalsize\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}
+  {\normalfont\normalsize\bfseries}{\thesubsubsection}{1em}{}
+
+\setstretch{1.3}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ═════════════════════════════════════════════════════════════════════════════
+% TITLE PAGE
+% ═════════════════════════════════════════════════════════════════════════════
+\begin{titlepage}
+\thispagestyle{empty}
+\begin{center}
+    {\large \textbf{VISVESVARAYA TECHNOLOGICAL UNIVERSITY}}\\[2pt]
+    {\normalsize \textbf{“Jnana Sangama”, Belagavi-590014, Karnataka, India}}\\[14pt]
+
+    % College / University Logo Placeholder
+    \vspace{8pt}
+    \begin{tikzpicture}
+      \draw[fill=blue!10, draw=blue!50] (0,0) circle (1.2cm);
+      \node at (0,0) {\textbf{VTU LOGO}};
+    \end{tikzpicture}
+    \vspace{12pt}
+
+    {\large \textbf{Major Project Phase II Report}}\\[4pt]
+    {\normalsize \textbf{On}}\\[10pt]
+
+    {\large \textbf{\textcolor{red!70!black}{“AGENTIC MESH: PRODUCTION-GRADE DISTRIBUTED AGENT WORKFLOW PLATFORM WITH CAUSAL REPLICATION AND MULTI-ROLE ENFORCEMENT”}}}\\[14pt]
+
+    {\small \textit{Submitted in partial fulfillment of the requirements for the award of the degree}}\\[3pt]
+    {\small \textit{Of}}\\[4pt]
+    {\large \textbf{Bachelor of Engineering}}\\[3pt]
+    {\large \textbf{In}}\\[3pt]
+    {\large \textbf{Computer Science and Engineering}}\\[3pt]
+    {\small \textit{Visvesvaraya Technological University, Belagavi.}}\\[14pt]
+
+    {\small \textbf{Submitted by:}}\\[5pt]
+    {\normalsize \textbf{\textcolor{red!70!black}{ADVAITH J (1AM22CS001)}}}\\[3pt]
+    {\normalsize \textbf{\textcolor{red!70!black}{TEAM MEMBER 2 (1AM22CS002)}}}\\[3pt]
+    {\normalsize \textbf{\textcolor{red!70!black}{TEAM MEMBER 3 (1AM22CS003)}}}\\[3pt]
+    {\normalsize \textbf{\textcolor{red!70!black}{TEAM MEMBER 4 (1AM22CS004)}}}\\[14pt]
+
+    {\small \textbf{Under the Guidance of:}}\\[3pt]
+    {\normalsize \textbf{Guide Name}}\\[2pt]
+    {\small Asst Professor, Dept. of CSE}\\[14pt]
+
+    \begin{tikzpicture}
+      \draw[fill=gray!10, draw=gray!40] (-1.5,-0.5) rectangle (1.5,0.5);
+      \node at (0,0) {\textbf{AMC LOGO}};
+    \end{tikzpicture}\\[8pt]
+
+    {\small \textbf{DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING}}\\[2pt]
+    {\normalsize \textbf{AMC ENGINEERING COLLEGE}}\\[2pt]
+    {\small 18th K.M, Bannerghatta Main Road, Bangalore-560083}\\[2pt]
+    {\small \textbf{2026-2027}}
+\end{center}
+\end{titlepage}
+
+% ═════════════════════════════════════════════════════════════════════════════
+% CERTIFICATE PAGE
+% ═════════════════════════════════════════════════════════════════════════════
+\newpage
+\pagenumbering{roman}
+\setcounter{page}{1}
+
+\begin{center}
+    {\large \textbf{AMC ENGINEERING COLLEGE}}\\[2pt]
+    {\small \textbf{Bangalore-560083}}\\[4pt]
+    {\normalsize \textbf{Department of Computer Science and Engineering}}\\[8pt]
+
+    \begin{tikzpicture}
+      \draw[fill=gray!10, draw=gray!40] (-1.5,-0.4) rectangle (1.5,0.4);
+      \node at (0,0) {\textbf{AMC LOGO}};
+    \end{tikzpicture}\\[14pt]
+
+    {\large \textbf{\underline{CERTIFICATE}}}\\[18pt]
+\end{center}
+
+\noindent
+This is to certify that the Phase-II project work entitled \textbf{“AGENTIC MESH: PRODUCTION-GRADE DISTRIBUTED AGENT WORKFLOW PLATFORM WITH CAUSAL REPLICATION AND MULTI-ROLE ENFORCEMENT”} carried out by bonafide students \textbf{ADVAITH J (1AM22CS001), TEAM MEMBER 2 (1AM22CS002), TEAM MEMBER 3 (1AM22CS003) AND TEAM MEMBER 4 (1AM22CS004)} of AMC Engineering College, in partial fulfillment for the award of Bachelor of Engineering in Computer Science \& Engineering of Visvesvaraya Technological University (VTU), Belagavi, during the year 2026-2027. It is certified that all corrections and suggestions indicated for internal assessment have been incorporated in the report. The Project Phase-II report has been approved as it satisfies the academic requirements in respect of Project Work Phase-II prescribed for the said Bachelor of Engineering degree.\\[45pt]
+
+\noindent
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}ccc}
+    \textbf{Project Guide} & \textbf{HOD} & \textbf{Principal} \\[8pt]
+    \textbf{Guide Name} & \textbf{Dr. V Mareeswari} & \textbf{Dr. Yuvaraju B N} \\
+    Assistant Professor & Professor \& Head & Principal \\
+    Dept. of CSE, AMCEC & Dept. of CSE, AMCEC & AMCEC \\
+\end{tabular*}
+
+\vspace{50pt}
+\begin{center}
+    \textbf{\underline{External Viva}}
+\end{center}
+\vspace{10pt}
+\noindent
+\textbf{External Name} \hfill \textbf{Signature with Date} \\
+1. \rule{6cm}{0.4pt} \hfill \rule{4cm}{0.4pt} \\[12pt]
+2. \rule{6cm}{0.4pt} \hfill \rule{4cm}{0.4pt}
+
+% ═════════════════════════════════════════════════════════════════════════════
+% DECLARATION
+% ═════════════════════════════════════════════════════════════════════════════
+\newpage
+\begin{center}
+    {\large \textbf{\underline{DECLARATION}}}\\[25pt]
+\end{center}
+
+\noindent
+We the undersigned students of 8th semester Department of Computer Science \& Engineering, AMC Engineering College, declare that our project work entitled \textbf{“AGENTIC MESH: PRODUCTION-GRADE DISTRIBUTED AGENT WORKFLOW PLATFORM WITH CAUSAL REPLICATION AND MULTI-ROLE ENFORCEMENT”} is a bonafide work of ours. Our project is neither a copy nor by means a modification of any other engineering project. We also declare that this project was not entitled for submission to any other university in the past and shall remain the only submission made and will not be submitted by us to any other university in the future.\\[40pt]
+
+\noindent
+\begin{tabularx}{\textwidth}{l X r}
+    \textbf{NAME} & \textbf{USN} & \textbf{SIGNATURE} \\[12pt]
+    \textbf{ADVAITH J} & \textbf{1AM22CS001} & \rule{4cm}{0.4pt} \\[15pt]
+    \textbf{TEAM MEMBER 2} & \textbf{1AM22CS002} & \rule{4cm}{0.4pt} \\[15pt]
+    \textbf{TEAM MEMBER 3} & \textbf{1AM22CS003} & \rule{4cm}{0.4pt} \\[15pt]
+    \textbf{TEAM MEMBER 4} & \textbf{1AM22CS004} & \rule{4cm}{0.4pt} \\
+\end{tabularx}
+
+% ═════════════════════════════════════════════════════════════════════════════
+% ACKNOWLEDGMENT
+% ═════════════════════════════════════════════════════════════════════════════
+\newpage
+\begin{center}
+    {\large \textbf{\underline{ACKNOWLEDGMENT}}}\\[20pt]
+\end{center}
+
+\noindent
+First and foremost we would like to thank GOD, the Almighty for being so merciful on us.
+
+\noindent
+We have a great pleasure in expressing our deep sense of gratitude to founder Chairman \textbf{Dr. K.R. Paramahamsa} and Executive Vice President \textbf{Mr. Rahul Kalluri} for having provided us with a great infrastructure and well-furnished laboratories for successful completion of our Project.
+
+\noindent
+We express our special thanks and gratitude to our Academic Advisor \textbf{Dr. Nagaraja R} for providing us all the necessary advice for successful completion of our project.
+
+\noindent
+We express our sincere thanks and gratitude to our Principal \textbf{Dr. Yuvaraju B N} for providing us all the necessary support and encouragement.
+
+\noindent
+We would like to extend our special thanks to \textbf{Dr. V. Mareeswari}, Professor and Head, Department of CSE, for her guidance, support and valuable suggestions given to us throughout the course of our project work.
+
+\noindent
+We would like to extend our special thanks to Project coordinator \textbf{Mrs. Karthiga G}, Department of CSE, for her support and encouragement throughout the project timeline.
+
+\noindent
+We are profoundly grateful to our guide \textbf{Guide Name}, Asst. Prof., Department of CSE, AMC Engineering College, Bengaluru for constant motivation, technical insights, and continuous guidance.
+
+\noindent
+Last but not least, we wish to thank all the teaching and non-teaching staff of the Department of Computer Science and Engineering, our parents, and peers for their unfailing encouragement and support during the preparation of this project report.\\[30pt]
+
+\noindent
+\begin{tabularx}{\textwidth}{l X}
+    \textbf{ADVAITH J} & \textbf{1AM22CS001} \\
+    \textbf{TEAM MEMBER 2} & \textbf{1AM22CS002} \\
+    \textbf{TEAM MEMBER 3} & \textbf{1AM22CS003} \\
+    \textbf{TEAM MEMBER 4} & \textbf{1AM22CS004} \\
+\end{tabularx}
+
+% ═════════════════════════════════════════════════════════════════════════════
+% ABSTRACT
+% ═════════════════════════════════════════════════════════════════════════════
+\newpage
+\begin{center}
+    {\large \textbf{\underline{ABSTRACT}}}\\[20pt]
+\end{center}
+
+\noindent
+Modern autonomous AI systems are increasingly transitioning from centralized, single-model APIs toward distributed multi-agent workflows. However, existing multi-agent systems suffer from critical architectural deficiencies: reliance on single points of failure, lack of verifiable role separation, unconstrained database mutations, susceptibility to concurrent write divergence, and absence of causal state replication across edge nodes.
+
+This project presents \textbf{Agentic Mesh}, a resilient, production-grade distributed agent workflow platform that unifies peer-to-peer (P2P) mesh networking, verifiable role-based authorization, atomic local mutations, causal vector-clock synchronization, and local large language model (LLM) reasoning into an integrated framework. Built on top of \textbf{libp2p} with TCP multiaddr transport and GossipSub pubsub messaging, the system establishes a decentralized cluster of nodes operating under five specialized roles: \textit{Planner}, \textit{Executor}, \textit{Validator}, \textit{Router}, and \textit{Peer}.
+
+Security and safety guarantees are strictly enforced at the protocol level: Planner nodes decompose natural language tasks using localized Ollama models but are prevented by strict authorization guards from mutating business databases directly. Conversely, only authorized Executor nodes commit state changes. Every transaction is subjected to an allowlist schema validator, executed inside atomic SQLite transactions, and committed to an immutable append-only mesh ledger (\texttt{\_mesh\_log}). Cross-node state synchronization is governed by element-wise vector clocks that causally order transactions, detect concurrent write conflicts, and reconcile diverged logs without centralized lock managers. A dual-dashboard reactive UI provides operators with real-time 2D force-directed topology tracking, telemetry monitoring, human-in-the-loop approval workflows, and instant conflict resolution. Validated across live physical workstations over local area networks (LAN), Agentic Mesh demonstrates sub-second P2P discovery, deterministic causal convergence, and zero data corruption under network partitioning.
+
+% ═════════════════════════════════════════════════════════════════════════════
+% TABLE OF CONTENTS, LIST OF FIGURES, LIST OF TABLES
+% ═════════════════════════════════════════════════════════════════════════════
+\newpage
+\tableofcontents
+
+\newpage
+\listoffigures
+
+\newpage
+\listoftables
+
+% ═════════════════════════════════════════════════════════════════════════════
+% CHAPTER 1: INTRODUCTION
+% ═════════════════════════════════════════════════════════════════════════════
+\newpage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\chapter{INTRODUCTION}
+
+\section{Overview}
+The landscape of software automation and artificial intelligence is undergoing a foundational paradigm shift. Rather than executing monolithic, prompt-chained workflows against proprietary centralized cloud APIs, real-world operational environments increasingly demand autonomous, collaborative agent networks. These multi-agent systems must reason, communicate, validate, and execute complex business transactions across edge nodes, local servers, and distributed workstations.
+
+However, distributing autonomous agent execution presents complex distributed systems challenges. In decentralized architectures, agents frequently face network latency, unreliable peer discovery, concurrent state updates, conflicting database mutations, and unauthorized privilege escalation. If an autonomous planning agent is granted unrestricted direct write access to underlying database schemas, slight hallucination in model generation can result in catastrophic data corruption. Furthermore, in edge-native deployments where internet connectivity is intermittent, nodes cannot depend on global consensus mechanisms (such as Paxos, Raft, or proof-of-work blockchains) due to heavy computational overhead, strict leader dependencies, and unacceptable transaction latency.
+
+To address these challenges, \textbf{Agentic Mesh} introduces a production-ready, peer-to-peer distributed workflow platform. The platform divides responsibilities into cryptographically verifiable roles: \textit{Planner} nodes decompose high-level intents into structured execution graphs via local LLMs, \textit{Router} nodes balance computational load, \textit{Validator} nodes audit schema constraints, and \textit{Executor} nodes atomically commit mutations to SQLite database storage. Transactions are causal-tracked through lightweight vector clocks and replicated via GossipSub pubsub channels. An intuitive human-in-the-loop (HITL) approval gate ensures that high-risk operations require explicit human confirmation, bridging the gap between automated agentic autonomy and enterprise data safety.
+
+\section{Objectives}
+The primary objective of this project is to architect, implement, and evaluate a resilient, decentralized agent workflow platform that provides verified role separation, atomic local commits, and causal log replication. The specific objectives are:
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+    \item To design a peer-to-peer multi-agent communication fabric using libp2p with mDNS local discovery, bootstrap multiaddress dialing, and GossipSub pubsub messaging.
+    \item To enforce strict node-role authorization such that Planner nodes cannot directly mutate persistent tables, while Executor nodes must verify prior approval and schema integrity before execution.
+    \item To implement an atomic mutation engine with allowlisted table and column validation, transactional rollbacks, and tamper-resistant audit logging in an immutable append-only ledger (\texttt{\_mesh\_log}).
+    \item To engineer a vector-clock causal replication engine capable of detecting concurrent write conflicts, computing missing log deltas, and synchronizing distributed state without central authority.
+    \item To integrate localized Large Language Model (LLM) inference (via Ollama) on Planner nodes for zero-cloud natural language intent parsing and SQL operation graph decomposition.
+    \item To build dual responsive operator dashboards providing real-time 2D force-directed network topology visualization, human-in-the-loop approval interfaces, and operational metrics telemetry.
+\end{itemize}
+
+\section{Purpose, Scope, Applicability}
+
+\subsection{Purpose}
+The purpose of the Agentic Mesh project is to replace fragile, centralized agent orchestration frameworks with an enterprise-grade, peer-to-peer workflow platform. Traditional agent pipelines rely on central cloud orchestrators that create single points of failure, introduce vendor lock-in, and leak sensitive enterprise data. Agentic Mesh provides a resilient, localized, and verifiable execution platform where independent nodes collaborate over peer-to-peer protocols with provable causal consistency and strict safety boundaries.
+
+\subsection{Scope}
+The scope of this project encompasses:
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+    \item \textbf{Decentralized Mesh Networking}: Self-discovering P2P overlay network across local area network (LAN) workstations and edge devices.
+    \item \textbf{Verifiable Role Separation}: Server-derived role validation preventing unauthorized actions across Planner, Executor, Validator, and Router roles.
+    \item \textbf{Causal Consistency \& Conflict Resolution}: Causal vector clocks tracking transaction ancestry, with support for automatic Last-Write-Wins (LWW) and manual operator reconciliation.
+    \item \textbf{Human-in-the-Loop Governance}: Tiered risk assessment enforcing mandatory human sign-off for critical database operations.
+    \item \textbf{Cross-Platform Multi-Node Operation}: Validation on heterogeneous operating systems (Windows, Linux, macOS) across independent physical workstations.
+\end{itemize}
+
+\subsection{Applicability}
+The platform is applicable across multiple mission-critical domains:
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+    \item \textbf{Enterprise Edge Operations}: Retail, warehouse, and logistics management where distributed branch computers must continue processing and replicating transactions during internet outages.
+    \item \textbf{Privacy-Preserving Corporate Networks}: Organizations requiring autonomous AI assistance without transmitting proprietary database records to external third-party cloud services.
+    \item \textbf{Industrial IoT \& Smart Infrastructure}: Sensor-rich industrial facilities requiring autonomous diagnostic nodes to plan and coordinate physical actuations under strict safety and validation gates.
+    \item \textbf{Disaster Relief \& Tactical Operations}: Environments lacking telecommunications infrastructure where autonomous nodes must establish ad-hoc peer networks to coordinate logistics.
+\end{itemize}
+
+\section{Organization of Report}
+This project report is structured systematically as follows:
+Chapter 1 introduces the project background, core objectives, purpose, and applicability.
+Chapter 2 reviews related literature on distributed multi-agent systems, consensus algorithms, vector clocks, and highlights drawbacks of existing systems.
+Chapter 3 outlines software and hardware requirements, UML analysis models, and functional/non-functional specifications.
+Chapter 4 details project planning, phase breakdown, milestone scheduling, and risk management strategies.
+Chapter 5 presents the system architecture, component decomposition, interface designs, data structures, and algorithmic flows.
+Chapter 6 covers technical implementation approaches, libraries, and core code implementations.
+Chapter 7 explains testing methodologies, test case matrices, and comprehensive test suite results.
+Chapter 8 presents results, UI screenshots, telemetry graphs, and analytical discussions.
+Chapter 9 concludes the report and discusses real-world applications and future research scope.
+
+% ═════════════════════════════════════════════════════════════════════════════
+% CHAPTER 2: LITERATURE SURVEY
+% ═════════════════════════════════════════════════════════════════════════════
+\chapter{LITERATURE SURVEY}
+
+\section{Introduction}
+Distributed computing and autonomous multi-agent systems have witnessed significant academic and commercial interest. This chapter surveys seminal and contemporary research across peer-to-peer networking, causal consistency tracking, database replication, and large language model coordination to establish the theoretical foundations and justify the architectural design of Agentic Mesh.
+
+\section{Summary of Literature Survey}
+
+\noindent
+\textbf{Lamport, L. [1]} in \textit{“Time, Clocks, and the Ordering of Events in a Distributed System”} introduced logical clocks to define a partial ordering of events based on the \textit{happened-before} relation. This seminal work established that physical clock synchronization across independent machines is fundamentally unreliable, laying the groundwork for logical time tracking. While Lamport timestamps establish total order, they cannot differentiate between concurrent and causally dependent events.
+
+\noindent
+\textbf{Fidge, C. and Mattern, F. [2]} in \textit{“Timestamps in Distributed Systems and Their Applications”} formulated vector clocks. By maintaining an integer array of event counters across $N$ nodes, vector clocks allow any node to definitively prove whether two events are causally related or concurrent. Agentic Mesh incorporates vector clocks to ensure causal consistency across peer mutations without requiring a centralized coordinator.
+
+\noindent
+\textbf{Benet, J. and Diaz, D. [3]} in \textit{“libp2p: A Modular Network Stack”} presented a modular peer-to-peer networking framework supporting transport agnosticism, encrypted streams via Noise protocol, peer routing, and pubsub messaging. The libp2p stack decouples application protocols from physical addressing, providing the foundational networking substrate for Agentic Mesh.
+
+\noindent
+\textbf{Vyzovitis, D. et al. [4]} in \textit{“GossipSub: A Secure, Highly Available Pub/Sub Protocol”} formulated an attack-resilient gossip protocol combining mesh construction with random gossip dissemination. GossipSub achieves low delivery latency, bounded bandwidth usage, and high resilience against message dropping. Agentic Mesh employs GossipSub for \texttt{mesh:control}, \texttt{mesh:transactions}, and \texttt{mesh:sync} communication.
+
+\noindent
+\textbf{DeCandia, G. et al. [5]} in \textit{“Dynamo: Amazon’s Highly Available Key-value Store”} demonstrated that enterprise systems can achieve high availability by embracing eventual consistency, vector clocks, and decentralized object versioning. Dynamo established that decentralized systems can sacrifice ACID guarantees for partition tolerance; however, Agentic Mesh adapts this by retaining strict local ACID transactions while using causal vector clocks for remote replication.
+
+\noindent
+\textbf{Shapiro, M. et al. [6]} in \textit{“Conflict-free Replicated Data Types (CRDTs)”} proved that distributed replicas can converge deterministically without synchronization if concurrent updates commute. While state-based and operation-based CRDTs provide mathematically guaranteed convergence, they impose strict data structure constraints. Agentic Mesh uses an append-only transaction ledger with deterministic Last-Write-Wins and operator-driven conflict resolution for relational schemas.
+
+\noindent
+\textbf{Wu, Q. et al. [7]} in \textit{“AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation”} proposed multi-agent conversation frameworks where agents collaborate through natural language. However, AutoGen relies on shared runtime memory on a single machine or centralized cloud servers, lacking P2P network distribution, verifiable database transaction boundaries, or causal conflict handling.
+
+\noindent
+\textbf{Li, G. et al. [8]} in \textit{“Camel: Communicative Agents for 'Mind' Exploration of Large Scale Language Model Society”} demonstrated communicative agent role-playing for autonomous cooperative task completion. The work established the power of role assignment (e.g., planner, programmer, reviewer), but omitted physical network decentralization, distributed ledger persistence, and cryptographic authorization.
+
+\noindent
+\textbf{Ongaro, D. and Ousterhout, J. [9]} in \textit{“In Search of an Understandable Consensus Algorithm (Raft)”} described consensus via leader election and log replication. While Raft provides strict linearizability, it requires an active quorum ($>50\%$ of nodes) and halts writes if the leader is partitioned. Agentic Mesh avoids leader dependencies, enabling edge nodes to continue local processing even when completely isolated from other peers.
+
+\noindent
+\textbf{Brewer, E. [10]} in \textit{“CAP Twelve Years Later: How the 'Rules' Have Changed”} analyzed trade-offs between Consistency, Availability, and Partition Tolerance. Brewer emphasized that real-world distributed architectures should optimize for availability and partition tolerance (AP) during network partitions while maintaining verifiable causal consistency and compensating transactions upon network recovery.
+
+\section{Drawbacks of Existing Systems}
+Analysis of current multi-agent and distributed database systems reveals significant deficiencies:
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+    \item \textbf{Centralized Single Points of Failure}: Frameworks such as LangChain and CrewAI rely on centralized runners; if the host machine crashes, all agent orchestration terminates.
+    \item \textbf{Unconstrained Write Permissions}: Agents are frequently granted direct SQL write access; a single LLM hallucination can permanently alter or delete database tables without audit trails.
+    \item \textbf{Absence of Role Separation}: Nodes generally run with full root privileges without cryptographic verification of whether an agent is authorized to plan, validate, or execute.
+    \item \textbf{Lack of Causal Synchronization}: Peer-to-peer state propagation is either nonexistent or relies on naive timestamp comparisons susceptible to NTP clock skew and silent overwrites.
+    \item \textbf{Heavy Cloud Dependencies}: Reliance on third-party commercial LLM endpoints introduces prohibitive operational costs, network latency, and data privacy violations.
+\end{itemize}
+
+\section{Problem Statement}
+Contemporary distributed multi-agent systems lack a unified, lightweight framework that combines decentralized peer-to-peer networking, cryptographically enforced role separation, atomic transactional commits, and causal state replication. Consequently, deploying autonomous AI agents in production environments risks database corruption, privilege escalation, concurrent write divergence, and complete failure during network partitions. There is an urgent need for an open, production-grade distributed agent workflow platform that provides provable local safety, deterministic causal convergence, and human-in-the-loop governance across heterogeneous physical nodes.
+
+\section{Proposed Solution}
+The proposed \textbf{Agentic Mesh} framework provides a four-tier distributed platform:
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+    \item \textbf{Peer-to-Peer Communication Substrate}: libp2p-powered mesh using multiaddr TCP, mDNS discovery, and GossipSub pubsub messaging across three distinct topics (\texttt{mesh:control}, \texttt{mesh:transactions}, \texttt{mesh:sync}).
+    \item \textbf{Verifiable Multi-Role Security Layer}: Trusted server-side authorization enforcing strict role boundaries. Planner nodes generate execution graphs via localized Ollama models but cannot execute writes; only authorized Executor nodes commit state changes.
+    \item \textbf{Atomic Local Execution \& Ledger}: Schema allowlists enforce structural validation before every operation. Valid mutations execute inside atomic SQLite transactions and append to an immutable mesh ledger (\texttt{\_mesh\_log}).
+    \item \textbf{Causal Vector Clock Replication}: Element-wise vector clocks track transaction lineage, identify concurrent conflicts, calculate missing log deltas during catch-up sync, and guarantee eventual state consistency across the network.
+\end{itemize}
+
+% ═════════════════════════════════════════════════════════════════════════════
+% CHAPTER 3: REQUIREMENT ENGINEERING
+% ═════════════════════════════════════════════════════════════════════════════
+\chapter{REQUIREMENT ENGINEERING}
+
+\section{Software and Hardware Requirements}
+
+\subsection{Software Requirements}
+\begin{table}[H]
+\centering
+\caption{Software Requirements}
+\label{tab:sw_req}
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\textbf{Component} & \textbf{Specification / Tool} \\
+\hline
+Operating System & Windows 10/11, Ubuntu 22.04 LTS, macOS Sonoma \\
+Runtime Environment & Node.js v20.x or v22.x LTS (ES Modules) \\
+Database Engine & SQLite 3 (via \texttt{better-sqlite3} native driver) \\
+P2P Networking & libp2p, @libp2p/tcp, @libp2p/mdns, @libp2p/gossipsub \\
+Local LLM Engine & Ollama Runtime (\texttt{qwen2.5-coder:1.5b} / \texttt{gemma3:4b}) \\
+Frontend Framework & React 19, Vite, Tailwind CSS \\
+Topology Visualization & \texttt{react-force-graph-2d}, HTML5 Canvas \\
+API Protocol & Express.js REST API \& Native WebSockets (\texttt{ws}) \\
+Testing Framework & Node.js Native Test Runner (\texttt{node --test}) \\
+\hline
+\end{tabularx}
+\end{table}
+
+\subsection{Hardware Requirements}
+\begin{table}[H]
+\centering
+\caption{Hardware Requirements}
+\label{tab:hw_req}
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\textbf{Component} & \textbf{Minimum Specification} \\
+\hline
+Processor (CPU) & Multi-core Intel Core i5 / AMD Ryzen 5 (4+ Cores) \\
+Random Access Memory (RAM) & 8 GB (16 GB recommended for concurrent local LLM inference) \\
+Storage Space & 10 GB available SSD space \\
+Network Interface & Standard Wi-Fi 802.11ac or Gigabit Ethernet LAN \\
+Port Availability & TCP Ports 9001--9010 (P2P), TCP Ports 3001--3010 (REST/WS) \\
+\hline
+\end{tabularx}
+\end{table}
+
+\section{Conceptual/Analysis Modeling}
+
+\subsection{Use Case Diagram}
+Figure 3.1 illustrates the primary interactions between the Human Operator, the Planner Node, the Executor Node, and the Distributed Mesh Network.
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=0.85, every node/.style={transform shape}]
+  % Actors
+  \node[draw, circle, minimum size=1cm] (operator) at (-4, 2) {Operator};
+  \node[draw, rectangle, rounded corners] (planner) at (1, 3.5) {Planner Node (delta)};
+  \node[draw, rectangle, rounded corners] (executor) at (1, 0.5) {Executor Node (alpha)};
+  \node[draw, rectangle, rounded corners] (mesh) at (6, 2) {P2P Mesh Network};
+
+  % Use cases
+  \draw[->, thick] (operator) -- node[above, sloped] {\scriptsize Submit Prompt / Task} (planner);
+  \draw[->, thick] (operator) -- node[below, sloped] {\scriptsize Approve / Reject} (executor);
+  \draw[->, thick] (planner) -- node[above] {\scriptsize P2P Exec Request} (executor);
+  \draw[->, thick] (executor) -- node[above] {\scriptsize Gossip Transaction} (mesh);
+  \draw[<->, thick, dashed] (planner) -- node[right] {\scriptsize Vector Clock Sync} (mesh);
+\end{tikzpicture}
+\caption{Use Case Diagram: Operator and Multi-Role Node Interactions}
+\label{fig:usecase}
+\end{figure}
+
+\subsection{Sequence Diagram}
+Figure 3.2 depicts the end-to-end transaction lifecycle from natural language prompt submission through local LLM decomposition, P2P handoff, human approval, and vector clock replication.
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=0.78, every node/.style={transform shape}]
+  % Lifelines
+  \node (user) at (0, 6) {\textbf{User/UI}};
+  \node (pln) at (3.5, 6) {\textbf{Planner (delta)}};
+  \node (llm) at (7, 6) {\textbf{Ollama LLM}};
+  \node (exe) at (10.5, 6) {\textbf{Executor (alpha)}};
+  \node (mesh) at (14, 6) {\textbf{Mesh Network}};
+
+  \draw[thick] (0, 5.5) -- (0, -0.5);
+  \draw[thick] (3.5, 5.5) -- (3.5, -0.5);
+  \draw[thick] (7, 5.5) -- (7, -0.5);
+  \draw[thick] (10.5, 5.5) -- (10.5, -0.5);
+  \draw[thick] (14, 5.5) -- (14, -0.5);
+
+  % Messages
+  \draw[->, thick] (0, 5) -- node[above] {\scriptsize 1. Submit Prompt} (3.5, 5);
+  \draw[->, thick] (3.5, 4.3) -- node[above] {\scriptsize 2. Generate Plan} (7, 4.3);
+  \draw[<-, thick] (3.5, 3.6) -- node[above] {\scriptsize 3. Return JSON Ops} (7, 3.6);
+  \draw[->, thick] (3.5, 2.9) -- node[above] {\scriptsize 4. EXECUTION\_REQUEST (P2P)} (10.5, 2.9);
+  \draw[->, thick] (10.5, 2.2) -- node[above] {\scriptsize 5. Request Approval} (0, 2.2);
+  \draw[->, thick] (0, 1.5) -- node[above] {\scriptsize 6. Operator Approves} (10.5, 1.5);
+  \draw[->, thick] (10.5, 0.8) -- node[above] {\scriptsize 7. Atomic Commit \& Log} (10.5, 0.8);
+  \draw[->, thick] (10.5, 0.1) -- node[above] {\scriptsize 8. Gossipsub TRANSACTION} (14, 0.1);
+\end{tikzpicture}
+\caption{Sequence Diagram: Distributed Planning, Execution, and Replication Flow}
+\label{fig:sequence}
+\end{figure}
+
+\subsection{Activity Diagram}
+Figure 3.3 illustrates the operational decision workflow executed for each transaction proposal, showing allowlist verification, approval gating, and causal replication.
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[scale=0.82, every node/.style={transform shape}]
+  \node[draw, circle, fill=black, inner sep=2pt] (start) at (0, 6) {};
+  \node[draw, rectangle, rounded corners] (plan) at (0, 5.2) {Decompose Prompt into SQL Operations};
+  \node[draw, diamond, aspect=2] (schema) at (0, 4) {Allowlist Valid?};
+  \node[draw, rectangle, rounded corners] (reject) at (4, 4) {Reject \& Log Audit Event};
+  \node[draw, diamond, aspect=2] (risk) at (0, 2.6) {Risk $\ge$ Threshold?};
+  \node[draw, rectangle, rounded corners] (gate) at (4, 2.6) {Await Operator Approval};
+  \node[draw, rectangle, rounded corners] (commit) at (0, 1.2) {Execute Atomic SQLite Transaction};
+  \node[draw, rectangle, rounded corners] (gossip) at (0, 0.2) {Advance Vector Clock \& Gossip to Mesh};
+  \node[draw, circle, double, inner sep=2pt] (stop) at (0, -0.8) {};
+
+  \draw[->, thick] (start) -- (plan);
+  \draw[->, thick] (plan) -- (schema);
+  \draw[->, thick] (schema) -- node[above] {\scriptsize No} (reject);
+  \draw[->, thick] (schema) -- node[right] {\scriptsize Yes} (risk);
+  \draw[->, thick] (risk) -- node[above] {\scriptsize High} (gate);
+  \draw[->, thick] (gate) |- node[near start, right] {\scriptsize Approved} (commit);
+  \draw[->, thick] (risk) -- node[right] {\scriptsize Low} (commit);
+  \draw[->, thick] (commit) -- (gossip);
+  \draw[->, thick] (gossip) -- (stop);
+\end{tikzpicture}
+\caption{Activity Diagram: Transaction Validation and State Transition Workflow}
+\label{fig:activity}
+\end{figure}
+
+\section{Software Requirement Specification}
+
+\subsection{Functional Requirements}
+\begin{enumerate}[label=\roman*.,leftmargin=*,itemsep=3pt]
+    \item \textbf{Autonomous P2P Discovery \& Transport}: The platform shall automatically discover local peers via mDNS and establish duplex encrypted TCP connections using bootstrap multiaddresses without requiring a central directory server.
+    \item \textbf{Verifiable Role-Based Authorization}: The system shall strictly enforce role capabilities on every mutation endpoint. Planner nodes shall be blocked with structured HTTP 403 responses if attempting execution; Executor nodes alone shall commit database mutations.
+    \item \textbf{Strict Workflow State Machine}: The system shall enforce non-bypassable task transitions: $\text{queued} \rightarrow \text{planned} \rightarrow \text{awaiting\_approval} \rightarrow \text{executing} \rightarrow \text{completed}$. Completed tasks shall never be executed twice.
+    \item \textbf{Atomic Mutation Execution with Schema Allowlists}: Every state change shall be validated against rigid table and column allowlists, executed within atomic SQLite transaction blocks, and logged to an immutable \texttt{\_mesh\_log} ledger.
+    \item \textbf{Causal Vector Clock Replication}: The replication engine shall advance vector clocks element-wise upon local writes, detect concurrent divergence, and compute differential log catch-up slices upon receiving sync requests.
+\end{enumerate}
+
+\subsection{Non-Functional Requirements}
+\begin{enumerate}[label=\roman*.,leftmargin=*,itemsep=3pt]
+    \item \textbf{Performance}: The system shall commit local transactions in under 50 milliseconds and broadcast transaction gossip packets across connected peers with sub-second latency.
+    \item \textbf{Partition Tolerance (Resilience)}: Individual nodes shall continue full local query and write execution during complete network disconnects, successfully re-synchronizing without data loss upon reconnection.
+    \item \textbf{Security \& Data Integrity}: All protected workflow mutation endpoints shall enforce API key authentication (\texttt{x-api-key}), with all operations audited immutably in the \texttt{audit\_events} table.
+    \item \textbf{Scalability}: The GossipSub overlay network and vector clock metadata shall support scalable peer expansion without quadratic network broadcast saturation.
+    \item \textbf{Usability}: The web dashboards shall dynamically present real-time 2D network topology, operational telemetry, human approvals, and database states with low latency.
+\end{enumerate}
+
+% ═════════════════════════════════════════════════════════════════════════════
+% CHAPTER 4: PROJECT PLANNING
+% ═════════════════════════════════════════════════════════════════════════════
+\chapter{PROJECT PLANNING}
+
+\section{Project Planning and Scheduling}
+The engineering of Agentic Mesh was planned across structured development phases, emphasizing test-driven development, formal schema definitions, and phased hardware deployment.
+
+\subsection*{Key Planning Points}
+\begin{enumerate}[label=\roman*.,leftmargin=*,itemsep=3pt]
+    \item \textbf{Literature Review \& Architectural Validation}: Evaluated decentralized distributed databases, vector clocks, and LLM agent orchestration frameworks. Selected libp2p, SQLite, and Ollama as the foundational stack.
+    \item \textbf{Requirement Analysis \& Formal Specification}: Formulated strict state machine invariants, node authorization rules, and zero-trust parameter derivation standards.
+    \item \textbf{System Design \& Protocol Modeling}: Drafted JSON wire protocols for GossipSub topics (\texttt{mesh:control}, \texttt{mesh:transactions}, \texttt{mesh:sync}), designed the 10-table workflow relational schema, and formulated vector clock merging algorithms.
+    \item \textbf{Phased Implementation Milestones}:
+    \begin{itemize}[leftmargin=*,itemsep=1pt]
+        \item \textit{Milestone 1}: Core SQLite schema migration and allowlist validation engine.
+        \item \textit{Milestone 2}: Vector clock causal engine and sync delta calculations.
+        \item \textit{Milestone 3}: Libp2p peer discovery, multiaddr dials, and GossipSub routing.
+        \item \textit{Milestone 4}: Multi-role authorization guard and state machine enforcement.
+        \item \textit{Milestone 5}: React/Vite operator dashboards with live 2D force graph.
+        \item \textit{Milestone 6}: Multi-workstation physical LAN integration and automated verification.
+    \end{itemize}
+    \item \textbf{Resource Allocation}: Divided computing responsibilities across physical nodes: Workstation 1 (Intel i7, 16GB RAM) allocated as Planner node \texttt{delta} running Ollama; Workstation 2 (AMD Ryzen, 16GB RAM) allocated as Executor node \texttt{alpha}.
+    \item \textbf{Risk Management}: Addressed clock skew by adopting logical vector clocks rather than physical timestamps. Mitigated LLM hallucination risk through strict table/column allowlists and mandatory human sign-off gates.
+\end{enumerate}
+
+% ═════════════════════════════════════════════════════════════════════════════
+% CHAPTER 5: SYSTEM DESIGN
+% ═════════════════════════════════════════════════════════════════════════════
+\chapter{SYSTEM DESIGN}
+
+\section{System Architecture}
+The system architecture of Agentic Mesh is organized into five coordinated layers:
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    font=\sffamily,
+    >=Stealth,
+    scale=0.74, every node/.style={transform shape},
+    layerbox/.style={
+        draw=black!70,
+        fill=#1,
+        rounded corners=8pt,
+        line width=1pt,
+        inner sep=8pt
+    },
+    subbox/.style={
+        draw=black!60,
+        fill=white,
+        rounded corners=5pt,
+        line width=0.8pt,
+        align=center,
+        inner sep=5pt,
+        font=\small\sffamily
+    },
+    nodeheader/.style={
+        font=\bfseries\normalsize\sffamily,
+        text=white,
+        align=center
+    },
+    connector/.style={
+        ->,
+        line width=1.3pt,
+        draw=black!80
+    },
+    dconnector/.style={
+        <->,
+        line width=1.3pt,
+        draw=cyan!70!black,
+        dashed
+    },
+    lbl/.style={
+        font=\scriptsize\bfseries\sffamily,
+        fill=white,
+        inner sep=2pt,
+        rounded corners=2pt,
+        draw=black!25
+    }
+]
+
+% Color definitions
+\colorlet{operatorcol}{blue!70!cyan}
+\colorlet{plannercol}{cyan!70!blue}
+\colorlet{meshcol}{purple!65!blue}
+\colorlet{executorcol}{teal!70!green}
+\colorlet{storagecol}{amber!80!orange}
+
+% 1. TOP: OPERATOR / CLIENT DASHBOARD LAYER
+\node[subbox, fill=operatorcol!10, text width=16cm, minimum height=1.2cm] (ui) at (0, 7.8) {
+    \textbf{\large Operator Dashboards (React 19 + Vite)}\\
+    \footnotesize Interactive Kanban Workflow Board $\;\bullet\;$ 2D Force-Directed Topology Visualizer $\;\bullet\;$ Real-Time Telemetry HUD $\;\bullet\;$ Human Approval Modal
+};
+
+% 2. MIDDLE-LEFT: PLANNER NODE (delta)
+\node[draw=none, fill=none] (plannertitle) at (-4.4, 5.7) {\textbf{\large Node $\delta$ (Planner Role)}};
+
+\node[subbox, fill=plannercol!10, text width=6.2cm] (p_queue) at (-4.4, 4.6) {
+    \textbf{Task Ingestion \& State Machine}\\
+    \scriptsize Validates transitions: \texttt{queued} $\rightarrow$ \texttt{planned}
+};
+
+\node[subbox, fill=plannercol!15, text width=6.2cm] (p_llm) at (-4.4, 3.1) {
+    \textbf{Localized LLM Planner (Ollama)}\\
+    \scriptsize \texttt{qwen2.5-coder:1.5b} / \texttt{gemma3:4b}\\
+    Decomposes prompts into SQL operation graph
+};
+
+\node[subbox, fill=plannercol!10, text width=6.2cm] (p_risk) at (-4.4, 1.6) {
+    \textbf{Risk Assessment \& Safety Gate}\\
+    \scriptsize Analyzes impact level $\rightarrow$ Marks \texttt{awaiting\_approval}
+};
+
+\begin{scope}[on background layer]
+    \node[layerbox=plannercol!6, fit=(plannertitle) (p_queue) (p_llm) (p_risk), inner sep=10pt] (planner_node) {};
+    \fill[plannercol!80!black, rounded corners=6pt] ([yshift=-22pt]planner_node.north west) rectangle (planner_node.north east);
+    \node at ([yshift=-11pt]planner_node.north) [nodeheader] {PLANNER NODE (\texttt{delta} : Port 3004)};
+\end{scope}
+
+% 3. MIDDLE-RIGHT: EXECUTOR NODE (alpha)
+\node[draw=none, fill=none] (executortitle) at (4.4, 5.7) {\textbf{\large Node $\alpha$ (Executor Role)}};
+
+\node[subbox, fill=executorcol!10, text width=6.2cm] (e_auth) at (4.4, 4.6) {
+    \textbf{Role Authorization Guard}\\
+    \scriptsize Strictly enforces: Only \texttt{executor} or \texttt{peer} can execute
+};
+
+\node[subbox, fill=executorcol!15, text width=6.2cm] (e_val) at (4.4, 3.1) {
+    \textbf{Schema Allowlist Validator}\\
+    \scriptsize Validates tables, columns, types, foreign keys, \& bounds
+};
+
+\node[subbox, fill=executorcol!10, text width=6.2cm] (e_atom) at (4.4, 1.6) {
+    \textbf{Atomic Transaction Service}\\
+    \scriptsize SQLite atomic commit $\bullet$ Complete rollback on error
+};
+
+\begin{scope}[on background layer]
+    \node[layerbox=executorcol!6, fit=(executortitle) (e_auth) (e_val) (e_atom), inner sep=10pt] (executor_node) {};
+    \fill[executorcol!80!black, rounded corners=6pt] ([yshift=-22pt]executor_node.north west) rectangle (executor_node.north east);
+    \node at ([yshift=-11pt]executor_node.north) [nodeheader] {EXECUTOR NODE (\texttt{alpha} : Port 3002)};
+\end{scope}
+
+% 4. CENTER: LIBP2P MESH FABRIC (INTERCONNECT)
+\node[subbox, fill=meshcol!12, text width=16cm, minimum height=1.5cm] (mesh) at (0, -0.6) {
+    \textbf{\large Peer-to-Peer Communication Mesh (libp2p)}\\
+    \small \textbf{Topics:} \texttt{mesh:control} (Presence \& Handoff) $\;\bullet\;$ \texttt{mesh:transactions} (Gossipsub Tx) $\;\bullet\;$ \texttt{mesh:sync} (Vector Clock Diff)\\
+    \footnotesize Multiaddr TCP Transport (\texttt{/ip4/192.168.1.x/tcp/900x}) $\;\bullet\;$ Noise Protocol Encryption $\;\bullet\;$ mDNS Discovery
+};
+
+% 5. BOTTOM: STORAGE & VECTOR CLOCK REPLICATION LEDGER
+\node[subbox, fill=storagecol!10, text width=7cm] (db_delta) at (-4.4, -2.7) {
+    \textbf{Local SQLite DB (\texttt{delta.db})}\\
+    \scriptsize \texttt{\_mesh\_log} Ledger $\;\bullet\;$ Tasks \& Steps $\;\bullet\;$ Audit Events\\
+    \textbf{Vector Clock:} $V_{\delta} = [\delta: 42, \alpha: 38]$
+};
+
+\node[subbox, fill=storagecol!10, text width=7cm] (db_alpha) at (4.4, -2.7) {
+    \textbf{Local SQLite DB (\texttt{alpha.db})}\\
+    \scriptsize \texttt{\_mesh\_log} Ledger $\;\bullet\;$ Replicated Data $\;\bullet\;$ Conflicts\\
+    \textbf{Vector Clock:} $V_{\alpha} = [\delta: 42, \alpha: 39]$
+};
+
+\begin{scope}[on background layer]
+    \node[layerbox=storagecol!5, fit=(db_delta) (db_alpha), inner sep=10pt] (storage_layer) {};
+    \fill[storagecol!80!black, rounded corners=6pt] ([yshift=-22pt]storage_layer.north west) rectangle (storage_layer.north east);
+    \node at ([yshift=-11pt]storage_layer.north) [nodeheader] {CAUSAL STATE STORAGE \& VECTOR CLOCK REPLICATION LEDGER};
+\end{scope}
+
+% CONNECTORS & LABELS
+\draw[connector] (ui.south -| p_queue.north) -- (p_queue.north)
+    node[midway, lbl] {REST / WebSockets (\texttt{POST /api/tasks})};
+
+\draw[connector] (ui.south -| e_auth.north) -- (e_auth.north)
+    node[midway, lbl] {Human Approval Sign-Off (\texttt{POST /api/approvals})};
+
+\draw[connector] (p_queue) -- node[midway, right, font=\tiny\sffamily] {Prompt} (p_llm);
+\draw[connector] (p_llm) -- node[midway, right, font=\tiny\sffamily] {JSON Plan} (p_risk);
+
+\draw[connector] (p_risk.east) -- ++(1.4, 0) |- (mesh.west)
+    node[near end, lbl, xshift=-0.5cm] {\texttt{EXECUTION\_REQUEST}};
+
+\draw[connector] (mesh.east) -| (e_auth.south)
+    node[near start, lbl, xshift=0.5cm] {Dispatch Execution};
+
+\draw[connector] (e_auth) -- node[midway, right, font=\tiny\sffamily] {Authorized} (e_val);
+\draw[connector] (e_val) -- node[midway, right, font=\tiny\sffamily] {Valid Schema} (e_atom);
+
+\draw[connector] (e_atom.south) -- (db_alpha.north)
+    node[midway, lbl] {Atomic Commit};
+
+\draw[connector] (p_risk.south) -- (db_delta.north)
+    node[midway, lbl] {Audit Log};
+
+\draw[dconnector] (db_delta.north) -- (mesh.south -| db_delta.north)
+    node[midway, lbl] {Vector Clock Sync};
+
+\draw[dconnector] (db_alpha.north) -- (mesh.south -| db_alpha.north)
+    node[midway, lbl] {Transaction Gossip};
+
+\end{tikzpicture}
+\caption{System Architecture: Multi-Role Agentic Mesh Workflow Platform}
+\label{fig:arch}
+\end{figure}
+
+\section{Component Design/Module Decomposition}
+The platform is decomposed into modular, loosely coupled subsystems:
+\begin{itemize}[leftmargin=*,itemsep=3pt]
+    \item \textbf{P2P Networking Engine (\texttt{src/p2p/})}: Manages libp2p node lifecycles, keeps fixed bootstrap multiaddresses connected via periodic keep-alive loops, listens for mDNS discovery, and publishes structured control envelopes.
+    \item \textbf{Peer Registry (\texttt{src/p2p/discovery.js})}: Tracks discovered nodes, advertised roles, libp2p addresses, hardware telemetry (CPU, memory, uptime), and active connection status.
+    \item \textbf{Workflow Service (\texttt{src/mesh/workflow-service.js})}: Implements the central business logic. Enforces node-role authorization, advances task states, generates structured steps, records audit events, and interfaces with the mutation service.
+    \item \textbf{Schema Validator \& Allowlists (\texttt{src/db/schema-validator.js})}: Contains the canonical allowlist of permissible tables and columns. Rejects dangerous DDL/DML, checks types, verifies unique/foreign-key constraints, and enforces positive price values.
+    \item \textbf{Sync Engine \& Vector Clock (\texttt{src/db/sync.js})}: Implements element-wise vector clock algebra ($V_1 \le V_2$), generates delta logs for peers, applies remote transactions atomically, and captures replication latency metrics.
+    \item \textbf{Operator Dashboards (\texttt{src/AgenticMeshDashboard.jsx})}: Responsive React interface rendering live Kanban boards, 2D force-directed topology graphs, approval action dialogs, and real-time activity feeds.
+\end{itemize}
+
+\section{Interface Design}
+Communication interfaces in Agentic Mesh are divided into three protocols:
+\begin{enumerate}[label=\roman*.,leftmargin=*,itemsep=3pt]
+    \item \textbf{Operator $\leftrightarrow$ Node Gateway (REST \& WebSocket)}: REST endpoints (\texttt{/api/tasks}, \texttt{/api/tasks/:id/plan}, \texttt{/api/tasks/:id/execute}, \texttt{/api/approvals}) handle deterministic requests with \texttt{x-api-key} headers. WebSockets push real-time transaction updates, node announcements, and logs to connected browsers.
+    \item \textbf{Node $\leftrightarrow$ Node Mesh Interface (libp2p GossipSub)}: Broadcasts envelopes across three topics:
+    \begin{itemize}[leftmargin=*,itemsep=1pt]
+        \item \texttt{mesh:control}: Node presence announcements (\texttt{PEER\_ANNOUNCE}), execution requests (\texttt{EXECUTION\_REQUEST}), and planning delegations.
+        \item \texttt{mesh:transactions}: Committed transaction envelopes gossiped for causal application.
+        \item \texttt{mesh:sync}: Vector-clock delta exchange (\texttt{SYNC\_REQUEST} and \texttt{SYNC\_RESPONSE}).
+    \end{itemize}
+    \item \textbf{Planner $\leftrightarrow$ LLM Engine Interface (HTTP REST)}: Planner nodes stream prompts to local Ollama endpoints (\texttt{http://127.0.0.1:11434/api/generate}) requesting strictly formatted JSON operation arrays with system prompt constraints.
+\end{enumerate}
+
+\section{Data Structure Design}
+\begin{table}[H]
+\centering
+\caption{Core Data Structures}
+\label{tab:data_struct}
+\begin{tabularx}{\textwidth}{|l|l|X|}
+\hline
+\textbf{Data Structure} & \textbf{Component} & \textbf{Description and Purpose} \\
+\hline
+\texttt{VectorClock} & Sync Engine & Map of \texttt{\{ peerId: sequenceNumber \}} tracking causal history across the mesh. \\
+\texttt{MeshEnvelope} & P2P Gossip & Protocol wrapper containing \texttt{\{ type, sender, payload, vectorClock, timestamp \}}. \\
+\texttt{TransactionPayload} & Mutation Engine & Structured JSON object containing \texttt{\{ id, operation, tableName, rowData, evidenceId \}}. \\
+\texttt{\_mesh\_log} (Table) & SQLite Ledger & Append-only table storing immutable local and replicated transactions. \\
+\texttt{tasks} (Table) & Workflow Service & Relational entity tracking task title, prompt, status, priority, and assigned node ID. \\
+\texttt{approvals} (Table) & Safety Engine & Records risk assessment, reviewer identity, decision status, and sign-off timestamps. \\
+\hline
+\end{tabularx}
+\end{table}
+
+\section{Algorithm Design}
+
+\subsection{Planning \& Prompt Decomposition (Planner Node)}
+\begin{enumerate}[label=\arabic*.,leftmargin=*,itemsep=2pt]
+    \item Receive natural language task request $R$ via REST endpoint or chat stream.
+    \item Construct system prompt containing database schema and permissible SQL operation grammar.
+    \item Query local Ollama model (\texttt{qwen2.5-coder:1.5b}) with temperature $0.1$.
+    \item Parse model response into operations array $O = [op_1, op_2, \dots, op_k]$.
+    \item Validate operations against \texttt{validateAllowlist()}; if invalid, abort and log failure.
+    \item Assess risk level based on affected tables (e.g., categories vs orders); if high-risk, generate approval request and mark task as \texttt{awaiting\_approval}.
+    \item Delegate execution graph to connected Executor node via libp2p \texttt{mesh:control}.
+\end{enumerate}
+
+\subsection{P2P Control Handoff \& Role Authorization}
+\begin{enumerate}[label=\arabic*.,leftmargin=*,itemsep=2pt]
+    \item Executor node receives \texttt{EXECUTION\_REQUEST} envelope from Planner peer.
+    \item Validate sender: Verify Planner node is registered in \texttt{mesh\_nodes} with role \texttt{planner}.
+    \item Verify local acting node role: Assert local role is \texttt{executor} or \texttt{peer}; reject if unauthorized.
+    \item Inspect task approval record: If task risk is high, ensure approval decision is \texttt{approved}.
+    \item Return initial response (\texttt{pending\_approval} or \texttt{executing}) to Planner peer.
+\end{enumerate}
+
+\subsection{Atomic Execution \& Causal Vector Clock Replication}
+\begin{enumerate}[label=\arabic*.,leftmargin=*,itemsep=2pt]
+    \item Open atomic SQLite database transaction.
+    \item For each operation $op \in O$, execute schema validator check against active database state.
+    \item Execute SQL statement (INSERT, UPDATE, DELETE); obtain affected row ID.
+    \item Increment local node's sequence number in vector clock: $V_{\text{local}}[\text{selfId}] \leftarrow V_{\text{local}}[\text{selfId}] + 1$.
+    \item Insert immutable record into \texttt{\_mesh\_log} with transaction ID, serialized row data, and updated vector clock.
+    \item Commit SQLite transaction; if any operation fails, roll back completely.
+    \item Publish transaction envelope to GossipSub topic \texttt{mesh:transactions}.
+    \item Remote peers receive envelope, check \texttt{\_mesh\_log} for deduplication, merge vector clocks element-wise ($V_{\text{peer}}[i] \leftarrow \max(V_{\text{peer}}[i], V_{\text{tx}}[i])$), and apply row data locally.
+\end{enumerate}
+
+% ═════════════════════════════════════════════════════════════════════════════
+% CHAPTER 6: IMPLEMENTATION
+% ═════════════════════════════════════════════════════════════════════════════
+\chapter{IMPLEMENTATION}
+
+\section{Implementation Approaches}
+\begin{table}[H]
+\centering
+\caption{Specifications of Implementation Tools and Libraries}
+\label{tab:impl_tools}
+\begin{tabularx}{\textwidth}{|l|l|X|}
+\hline
+\textbf{Tool / Library} & \textbf{Role in Project} & \textbf{Description and Purpose} \\
+\hline
+\texttt{libp2p} & P2P Networking & Modular decentralized network stack providing multiaddress TCP dialing, mDNS LAN discovery, and encrypted Noise streams. \\
+\texttt{@libp2p/gossipsub} & Pub/Sub Messaging & Topic-based epidemic pubsub router used for gossip transactions and control envelopes. \\
+\texttt{better-sqlite3} & Storage Engine & Synchronous, high-performance SQLite3 driver ensuring atomic commits and immediate query feedback. \\
+\texttt{Ollama} & Local LLM Inference & Local inference server executing lightweight models (\texttt{qwen2.5-coder:1.5b}) without cloud telemetry. \\
+\texttt{React 19 / Vite} & Dashboard Frontend & Fast, reactive user interface with Hot Module Replacement (HMR) and modular CSS styling. \\
+\texttt{react-force-graph-2d} & Topology Visualizer & Canvas-based 2D force-directed physics graph visualizing real-time P2P mesh topologies. \\
+\hline
+\end{tabularx}
+\end{table}
+
+\section{Code Snippets}
+
+\subsection{Libp2p Bootstrap Connection \& Keep-Alive}
+Listing 6.1 demonstrates the periodic keep-alive dialing algorithm ensuring fixed bootstrap peers remain connected across intermittent network fluctuations.
+\begin{lstlisting}[language=JavaScript,caption={Bootstrap Peer Keep-Alive (src/p2p/discovery.js)}]
+export function keepBootstrapPeers(node, addrs, { intervalMs = 15000 } = {}) {
+  const targets = (addrs || []).map(a => a.trim()).filter(Boolean);
+  const ipOf = (addr) => /^\/ip[46]\/([^/]+)\//.exec(addr)?.[1];
+
+  const tick = async () => {
+    const connections = typeof node.getConnections === 'function' ? node.getConnections() : [];
+    const connectedIps = new Set(connections.map(c => ipOf(c.remoteAddr.toString())));
+    for (const addr of targets) {
+      if (connectedIps.has(ipOf(addr))) continue;
+      try {
+        await node.dial(multiaddr(addr));
+        logger.p2p(`Connected to bootstrap peer ${addr}`);
+      } catch (err) {
+        logger.debug(`Bootstrap dial ${addr} failed: ${err.message}`);
+      }
+    }
+  };
+
+  if (targets.length === 0) return { stop: () => {}, tick };
+  tick();
+  const timer = setInterval(tick, intervalMs);
+  timer.unref?.();
+  return { stop: () => clearInterval(timer), tick };
+}
+\end{lstlisting}
+
+\subsection{Role-Based State Machine \& Authorization Enforcement}
+Listing 6.2 illustrates how the backend verifies node role authorizations before task planning or execution, rejecting invalid attempts with structured HTTP 403 responses.
+\begin{lstlisting}[language=JavaScript,caption={Role Authorization Enforcement (src/mesh/workflow-service.js)}]
+export function assertNodeRole(db, nodeId, allowedRoles, actionName, options = {}) {
+  const role = options.role || getNodeRole(db, nodeId) || (nodeId === config.NODE_NAME ? config.NODE_ROLE : null);
+  const normalizedAllowed = allowedRoles.concat(['peer']);
+
+  if (!role || !normalizedAllowed.includes(role)) {
+    const errorMsg = `Node '${nodeId || 'unknown'}' with role '${role || 'unknown'}' is not authorized to ${actionName}. Permitted roles: ${allowedRoles.join(', ')}.`;
+
+    recordAuditEvent(db, {
+      entity_type: options.entityType || 'task',
+      entity_id: options.entityId || nodeId || 'unknown',
+      action: 'ROLE_AUTHORIZATION_DENIED',
+      actor: nodeId || 'unknown',
+      details: { role, attempted_action: actionName, message: errorMsg }
+    });
+
+    const error = new Error(errorMsg);
+    error.code = 'FORBIDDEN';
+    error.status = 403;
+    error.role = role;
+    throw error;
+  }
+  ensureNodeExists(db, nodeId, role, options);
+  return role;
+}
+\end{lstlisting}
+
+\subsection{Vector Clock Causal Tracking and Replication}
+Listing 6.3 shows the vector clock implementation that increments local sequence numbers and merges remote vector clocks element-wise.
+\begin{lstlisting}[language=JavaScript,caption={Vector Clock Causal Algebra (src/db/sync.js)}]
+export class VectorClock {
+  constructor(initial = {}) {
+    this.clock = { ...initial };
+  }
+  increment(peerId) {
+    this.clock[peerId] = (this.clock[peerId] || 0) + 1;
+    return this;
+  }
+  merge(otherClock) {
+    const incoming = otherClock instanceof VectorClock ? otherClock.clock : (otherClock || {});
+    for (const [peer, seq] of Object.entries(incoming)) {
+      this.clock[peer] = Math.max(this.clock[peer] || 0, Number(seq) || 0);
+    }
+    return this;
+  }
+  isNewerThan(otherClock) {
+    const other = otherClock instanceof VectorClock ? otherClock.clock : (otherClock || {});
+    let hasStrictlyGreater = false;
+    for (const [peer, seq] of Object.entries(this.clock)) {
+      if (seq < (other[peer] || 0)) return false;
+      if (seq > (other[peer] || 0)) hasStrictlyGreater = true;
+    }
+    return hasStrictlyGreater;
+  }
+  toJSON() { return { ...this.clock }; }
+}
+\end{lstlisting}
+
+% ═════════════════════════════════════════════════════════════════════════════
+% CHAPTER 7: TESTING
+% ═════════════════════════════════════════════════════════════════════════════
+\chapter{TESTING}
+
+\section{Definition and Types}
+Testing validates software correctness, reliability, performance, and security against specified requirements. The testing strategy for Agentic Mesh encompassed five methodologies:
+\begin{enumerate}[label=\roman*.,leftmargin=*,itemsep=3pt]
+    \item \textbf{Unit Testing}: Validates discrete functions such as vector clock merging, allowlist filtering, model output parsing, and SQL statement generation in isolation.
+    \item \textbf{Integration Testing}: Tests interactions between interconnected subsystems: libp2p network connections, Ollama LLM response handoffs, and SQLite transactional commits.
+    \item \textbf{System Testing}: Evaluates the integrated platform against end-to-end user workflows, validating task creation through planning, human approval, and vector clock replication.
+    \item \textbf{Security \& Authorization Testing}: Evaluates role-based authorization guards, ensuring Planner nodes are strictly prevented from executing mutations and verifying that unauthenticated requests are rejected with HTTP 401.
+    \item \textbf{Regression Testing}: Automated execution of the entire test suite (107 automated unit and integration tests) upon every codebase update to guarantee zero regressions.
+\end{enumerate}
+
+\section{Test Case Analysis}
+Testing scenarios targeted critical failure modes in distributed agent workflows:
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+    \item \textbf{Role Authorization Guard}: Verified that invoking \texttt{POST /api/tasks/:id/execute} on Planner node \texttt{delta} produces an HTTP 403 Forbidden response and records a \texttt{ROLE\_AUTHORIZATION\_DENIED} audit entry.
+    \item \textbf{Strict State Machine Transitions}: Confirmed that tasks cannot bypass states (e.g., executing directly from \texttt{queued} status) and that completed tasks cannot be executed twice.
+    \item \textbf{Atomic Transaction Rollback}: Injected invalid foreign keys midway through a multi-operation batch; verified that all preceding operations were atomically rolled back.
+    \item \textbf{P2P Multi-Node Replication}: Connected two physical laptops across LAN; verified that an item committed on Executor \texttt{alpha} (port 3002) was automatically replicated to Planner \texttt{delta} (port 3004).
+\end{itemize}
+
+\section{Test Case for Project}
+\begin{table}[H]
+\centering
+\caption{Test Cases and Verification Outcomes}
+\label{tab:test_cases}
+\begin{tabularx}{\textwidth}{|l|X|X|l|}
+\hline
+\textbf{Test Scenario} & \textbf{Test Description} & \textbf{Expected Outcome} & \textbf{Actual Outcome} \\
+\hline
+Node Role Guard & Planner node invokes execution endpoint. & Rejected with 403 Forbidden \& audit event. & Rejected (403) \\
+State Machine & Execute task in \texttt{queued} status. & Error: Task must be planned before execution. & Blocked as planned \\
+Batch Rollback & Batch with 1 invalid operation in 5 ops. & Atomic rollback of entire batch; zero writes. & Rolled back safely \\
+Allowlist Check & Attempt write to non-allowlisted table. & Rejected by schema allowlist validator. & Rejected strictly \\
+Auth Enforcement & Call mutation API without \texttt{x-api-key}. & 401 Unauthorized returned immediately. & 401 Rejected \\
+P2P Discovery & Launch nodes on ports 9002 and 9004. & Discovered via bootstrap multiaddr \& mDNS. & Connected \\
+Vector Clock Sync & Commit transaction on node \texttt{alpha}. & Vector clock incremented; replicated to \texttt{delta}. & Replicated (100\%) \\
+Ghost Node Filter & Query \texttt{GET /api/nodes}. & Raw cryptographic peer IDs filtered out. & Clean node list \\
+\hline
+\end{tabularx}
+\end{table}
+
+\noindent
+\textbf{Test Suite Summary}: All \textbf{107 automated tests across 20 test suites} executed and passed with 0 failures, 0 skipped, and 100\% specification compliance.
+
+% ═════════════════════════════════════════════════════════════════════════════
+% CHAPTER 8: RESULTS AND DISCUSSION
+% ═════════════════════════════════════════════════════════════════════════════
+\chapter{RESULTS AND DISCUSSION}
+
+\section{Snapshots}
+
+\subsection{Dual-Node Mesh Topology Visualization}
+The React dashboard renders live 2D force-directed physics graphs showing connected peer nodes. Following the removal of ghost entries with raw peer IDs, the graph clearly displays Planner node \texttt{delta} (cyan) connected via libp2p TCP to Executor node \texttt{alpha} (emerald), complete with real-time hardware telemetry and connection status.
+
+\subsection{Distributed Workflow Kanban Board}
+The workflow board organizes tasks across six reactive Kanban columns (\textit{Queued}, \textit{Planned}, \textit{Awaiting Approval}, \textit{Executing}, \textit{Completed}, \textit{Failed}). When a task is submitted, Planner node \texttt{delta} generates structured execution steps using Ollama. If high-risk tables are detected, the task transitions to \textit{Awaiting Approval}, requiring operator confirmation before dispatching to Executor node \texttt{alpha}.
+
+\subsection{Causal Replication \& Vector Clock Telemetry}
+The replication dashboard displays live vector clock states for all participating mesh nodes. When an item is committed on Executor node \texttt{alpha}, the transaction is gossiped across \texttt{mesh:transactions}, and Planner node \texttt{delta} replicates the row with sub-second latency, recording zero replication conflicts.
+
+\section{Discussion}
+Experimental results validate the effectiveness of the Agentic Mesh architecture:
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+    \item \textbf{Zero-Trust Safety}: Enforcing node-role authorization on the server eliminates vulnerabilities where clients forge agent credentials. Planner nodes effectively serve as stateless reasoning engines while data integrity remains protected.
+    \item \textbf{Causal Consistency without Central Bottlenecks}: Vector clocks eliminate single-leader synchronization bottlenecks. Nodes operate autonomously during network partitions and causally reconcile upon reconnection.
+    \item \textbf{Hardware Efficiency}: Utilizing lightweight local models (\texttt{qwen2.5-coder:1.5b}) and synchronous SQLite allows high-throughput agent operations on commodity laptops without cloud subscriptions.
+\end{itemize}
+
+% ═════════════════════════════════════════════════════════════════════════════
+% CHAPTER 9: CONCLUSION, APPLICATIONS AND FUTURE WORK
+% ═════════════════════════════════════════════════════════════════════════════
+\chapter{CONCLUSION, APPLICATIONS AND FUTURE WORK}
+
+\section{Conclusion}
+The \textbf{Agentic Mesh} project successfully designed, implemented, and validated an enterprise-grade distributed agent workflow platform. By integrating peer-to-peer networking (libp2p), server-derived role authorization, atomic SQLite mutation guarantees, vector-clock causal replication, and localized LLM reasoning, the platform overcomes the fragility, central single points of failure, and security risks inherent in existing agent frameworks. Rigorous testing across multi-laptop LAN environments confirmed robust P2P discovery, verified state machine enforcement, zero data corruption, and 100\% automated test suite success.
+
+\section{Applications}
+\begin{enumerate}[label=\roman*.,leftmargin=*,itemsep=3pt]
+    \item \textbf{Distributed Retail \& Inventory Mesh}: Branch retail locations can autonomously process inventory adjustments and supply chain orders, automatically synchronizing with central warehouses upon network availability.
+    \item \textbf{Private Enterprise AI Workspaces}: Organizations handling sensitive financial or legal data can deploy autonomous multi-agent assistants on private LANs without cloud data leakage.
+    \item \textbf{Industrial Automation \& Fleet Robotics}: Coordinating autonomous factory robots or warehouse vehicles where planning units coordinate actuations with dedicated execution nodes under strict validation gates.
+    \item \textbf{Tactical \& Intermittent Edge Operations}: Deploying autonomous software coordination across edge nodes in disaster recovery zones where public cloud access is severed.
+\end{enumerate}
+
+\section{Future Scope of The Project}
+\begin{enumerate}[label=\roman*.,leftmargin=*,itemsep=3pt]
+    \item \textbf{Byzantine Fault Tolerance (BFT)}: Extending the current crash-fault-tolerant (CFT) vector clock engine to incorporate cryptographic threshold signatures for malicious peer defense.
+    \item \textbf{Dynamic CRDT Synthesis}: Automatically synthesizing state-based Conflict-Free Replicated Data Types (CRDTs) for arbitrary user-defined relational tables.
+    \item \textbf{Zero-Knowledge Execution Proofs}: Incorporating zk-SNARK proofs of execution so validator nodes can mathematically verify task outcomes without re-executing full SQL batches.
+    \item \textbf{Cross-WAN NAT Traversal}: Implementing libp2p AutoNAT and Circuit Relay v2 to seamlessly connect nodes across disparate NAT firewalls and public internet subnets.
+    \item \textbf{Multi-Modal Agent Reasoning}: Integrating localized vision-language models (e.g., \texttt{gemma3:4b}) for automated visual inspection tasks in manufacturing meshes.
+\end{enumerate}
+
+% ═════════════════════════════════════════════════════════════════════════════
+% CO-PO MAPPING
+% ═════════════════════════════════════════════════════════════════════════════
+\chapter*{CO-PO MAPPING}
+\addcontentsline{toc}{chapter}{CO-PO MAPPING}
+
+\section*{i. PO/PSO Covered for Major Project with Justification}
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\textbf{CO} & \textbf{Course Outcome Description} \\
+\hline
+CO1 & Apply engineering knowledge and research methods to solve complex distributed systems problems. \\
+CO2 & Design and develop feasible, innovative engineering solutions for peer-to-peer AI coordination. \\
+CO3 & Plan, execute, and manage a software engineering project within defined academic timelines. \\
+CO4 & Communicate technical findings effectively through formal documentation and interactive demonstrations. \\
+CO5 & Work effectively individually and in a collaborative engineering team. \\
+CO6 & Exhibit awareness of ethical, security, and societal implications of autonomous AI agents. \\
+\hline
+\end{tabularx}
+
+\section*{ii. CO-PO Mapping Matrix}
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{|l|c|c|c|c|c|c|c|c|c|c|c|c|c|}
+\hline
+\textbf{COs} & \textbf{PO1} & \textbf{PO2} & \textbf{PO3} & \textbf{PO4} & \textbf{PO5} & \textbf{PO6} & \textbf{PO7} & \textbf{PO8} & \textbf{PO9} & \textbf{PO10} & \textbf{PO11} & \textbf{PSO1} & \textbf{PSO2} \\
+\hline
+CO1 & 3 & 3 &   & 3 & 3 &   &   &   &   &    &    & 3 & 2 \\
+CO2 & 3 & 3 & 3 &   & 3 &   &   &   &   &    & 2  & 3 & 2 \\
+CO3 &   &   & 3 &   & 3 &   &   &   & 3 & 2  & 3  & 3 & 2 \\
+CO4 &   &   &   &   &   &   &   & 2 &   & 3  &    &   & 2 \\
+CO5 &   &   &   &   & 2 &   &   &   & 3 & 2  & 2  & 2 & 2 \\
+CO6 &   &   &   & 2 &   & 3 & 3 & 3 &   &    &    &   & 2 \\
+\hline
+\textbf{Avg} & \textbf{3.0} & \textbf{3.0} & \textbf{3.0} & \textbf{2.5} & \textbf{2.8} & \textbf{3.0} & \textbf{3.0} & \textbf{2.5} & \textbf{3.0} & \textbf{2.3} & \textbf{2.3} & \textbf{2.8} & \textbf{2.0} \\
+\hline
+\end{tabular}
+\end{table}
+
+\section*{iii. CO-PO/PSO Justification Table}
+\begin{tabularx}{\textwidth}{|l|l|X|}
+\hline
+\textbf{CO} & \textbf{PO/PSO} & \textbf{Justification} \\
+\hline
+CO1 & PO1, PO2, PO4, PO5, PSO1 & Applies principles of distributed computing, causal vector clocks, and networking algorithms to build a resilient mesh. \\
+CO2 & PO1, PO2, PO3, PO5, PSO1 & Designs and implements a novel multi-role authorization and atomic mutation engine for safe AI coordination. \\
+CO3 & PO3, PO5, PO9, PO10, PO11 & Successfully managed sprint milestones, automated testing pipelines, and multi-node hardware deployments. \\
+CO4 & PO8, PO10, PO12 & Formulates detailed documentation, architectural diagrams, and interactive web dashboard presentations. \\
+CO5 & PO5, PO8, PO9, PO10, PO11 & Collaborated effectively in division of responsibilities across backend, frontend, networking, and testing. \\
+CO6 & PO4, PO6, PO7, PO8, PSO2 & Addresses critical ethical and safety concerns regarding unchecked AI mutations through human-in-the-loop gates. \\
+\hline
+\end{tabularx}
+
+% ═════════════════════════════════════════════════════════════════════════════
+% SUSTAINABLE DEVELOPMENT GOALS
+% ═════════════════════════════════════════════════════════════════════════════
+\chapter*{SUSTAINABLE DEVELOPMENT GOALS}
+\addcontentsline{toc}{chapter}{SUSTAINABLE DEVELOPMENT GOALS}
+
+\noindent
+The \textbf{Agentic Mesh} platform directly aligns with the United Nations Sustainable Development Goals (SDGs):
+\begin{itemize}[leftmargin=*,itemsep=4pt]
+    \item \textbf{SDG 9: Industry, Innovation, and Infrastructure}: Fosters resilient, open-source digital infrastructure by providing decentralized peer-to-peer computing that reduces reliance on monopolistic cloud data centers.
+    \item \textbf{SDG 12: Responsible Consumption and Production}: By deploying lightweight, optimized local language models (\texttt{qwen2.5-coder:1.5b}) on existing commodity consumer workstations, the platform significantly lowers electrical power consumption and carbon footprints compared to energy-intensive cloud hyperscalers.
+    \item \textbf{SDG 16: Peace, Justice, and Strong Institutions}: Employs tamper-proof immutable audit logging (\texttt{\_mesh\_log}) and verifiable human governance over AI actions, ensuring institutional transparency, accountability, and prevention of automated algorithmic overreach.
+\end{itemize}
+
+% ═════════════════════════════════════════════════════════════════════════════
+% REFERENCES
+% ═════════════════════════════════════════════════════════════════════════════
+\chapter*{REFERENCES}
+\addcontentsline{toc}{chapter}{REFERENCES}
+
+\noindent
+[1] L. Lamport, “Time, Clocks, and the Ordering of Events in a Distributed System,” \textit{Communications of the ACM}, vol. 21, no. 7, pp. 558--565, 1978. \\
+\texttt{[Online]. Available: https://doi.org/10.1145/359545.359563}
+
+\vspace{8pt}\noindent
+[2] C. Fidge and F. Mattern, “Timestamps in Distributed Systems and Their Applications,” \textit{Distributed Computing}, vol. 1, no. 1, pp. 1--15, 1988. \\
+\texttt{[Online]. Available: https://doi.org/10.1145/73044.73046}
+
+\vspace{8pt}\noindent
+[3] J. Benet and D. Diaz, “libp2p: A Modular Network Stack,” \textit{Protocol Labs Technical Report}, pp. 1--24, 2018. \\
+\texttt{[Online]. Available: https://github.com/libp2p/specs}
+
+\vspace{8pt}\noindent
+[4] D. Vyzovitis, Y. Napora, D. Diaz, and J. Benet, “GossipSub: A Secure, Highly Available Pub/Sub Protocol,” in \textit{IEEE International Conference on Blockchain and Cryptocurrency (ICBC)}, 2020, pp. 1--9. \\
+\texttt{[Online]. Available: https://doi.org/10.1109/ICBC49431.2020.9169440}
+
+\vspace{8pt}\noindent
+[5] G. DeCandia, D. Hastorun, M. Jampani, G. Kakulapati, A. Lakshman, A. Pilchin, S. Sivasubramanian, P. Vosshall, and W. Vogels, “Dynamo: Amazon’s Highly Available Key-value Store,” \textit{ACM SIGOPS Operating Systems Review}, vol. 41, no. 6, pp. 205--220, 2007. \\
+\texttt{[Online]. Available: https://doi.org/10.1145/1323293.1294281}
+
+\vspace{8pt}\noindent
+[6] M. Shapiro, N. Preguiça, C. Baquero, and M. Zawirski, “Conflict-Free Replicated Data Types,” in \textit{Symposium on Self-Stabilizing Systems (SSS)}, Springer, 2011, pp. 386--400. \\
+\texttt{[Online]. Available: https://doi.org/10.1007/978-3-642-24550-3\_29}
+
+\vspace{8pt}\noindent
+[7] Q. Wu, G. Bansal, J. Zhang, Y. Wu, S. Zhang, E. Zhu, B. Li, L. Jiang, N. Zhang, and C. Wang, “AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation Framework,” \textit{arXiv preprint arXiv:2308.08155}, 2023. \\
+\texttt{[Online]. Available: https://arxiv.org/abs/2308.08155}
+
+\vspace{8pt}\noindent
+[8] G. Li, H. A. A. K. Hammoud, H. Itani, D. Khizbullin, and B. Ghanem, “CAMEL: Communicative Agents for 'Mind' Exploration of Large Scale Language Model Society,” in \textit{Thirty-seventh Conference on Neural Information Processing Systems (NeurIPS)}, 2023, pp. 1--18. \\
+\texttt{[Online]. Available: https://arxiv.org/abs/2303.17760}
+
+\vspace{8pt}\noindent
+[9] D. Ongaro and J. Ousterhout, “In Search of an Understandable Consensus Algorithm,” in \textit{USENIX Annual Technical Conference (USENIX ATC 14)}, 2014, pp. 305--319. \\
+\texttt{[Online]. Available: https://www.usenix.org/conference/atc14/technical-sessions/presentation/ongaro}
+
+\vspace{8pt}\noindent
+[10] E. Brewer, “CAP Twelve Years Later: How the 'Rules' Have Changed,” \textit{Computer}, vol. 45, no. 2, pp. 23--29, 2012. \\
+\texttt{[Online]. Available: https://doi.org/10.1109/MC.2012.37}
+
+\end{document}

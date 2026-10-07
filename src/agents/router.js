@@ -1,13 +1,13 @@
 /**
- * @fileoverview AI Router — determines fast path vs AI path and provides Ollama chat wrapper using Gemma 4 E2B.
+ * @fileoverview AI Router — determines fast path vs AI path and provides Ollama chat wrapper.
  * @module agents/router
  */
 
-import { askGemma, isGemmaAvailable } from './ollama.js';
+import { askModel, isModelAvailable } from './ollama.js';
 import { logger } from '../utils/logger.js';
 
 /**
- * Calls Ollama using Gemma 4 E2B with messages format.
+ * Calls Ollama using configured model with messages format.
  * AI is optional — if Ollama is unreachable, returns null gracefully.
  * 
  * @param {Array<Object>} messages - The conversation messages array [{role, content}].
@@ -16,12 +16,12 @@ import { logger } from '../utils/logger.js';
  */
 export async function ollamaChat(messages, options = {}) {
   try {
-    // Combine messages into a single prompt context for Gemma chat completion
+    // Combine messages into a single prompt context for chat completion
     const systemMsg = messages.find(m => m.role === 'system')?.content || '';
     const userMsg = messages.filter(m => m.role !== 'system').map(m => `${m.role}: ${m.content}`).join('\n');
     const fullPrompt = systemMsg ? `${systemMsg}\n\n${userMsg}` : userMsg;
 
-    return await askGemma(fullPrompt, options);
+    return await askModel(fullPrompt, options);
   } catch (error) {
     logger.ai(`Ollama chat failed: ${error.message}`);
     return null;
@@ -34,10 +34,10 @@ export async function ollamaChat(messages, options = {}) {
  * AI path: natural language string
  * 
  * @param {string|Object} input - The incoming task request.
- * @param {Object} [db] - The database instance (optional, for context).
+ * @param {Object} [_db] - The database instance (optional, for context).
  * @returns {Object} The routing decision: { path: 'fast'|'ai'|'unknown', input, parsed }
  */
-export function routeTask(input, db) {
+export function routeTask(input, _db) {
   // If the input is an object matching the structured transaction pattern
   if (typeof input === 'object' && input !== null && input.table && input.operation && input.data) {
     return {
@@ -65,9 +65,9 @@ export function routeTask(input, db) {
 }
 
 /**
- * Checks if the Gemma model / Ollama service is available.
+ * Checks if the model / Ollama service is available.
  * @returns {Promise<boolean>} True if available, false otherwise.
  */
 export async function isOllamaAvailable() {
-  return await isGemmaAvailable();
+  return await isModelAvailable();
 }

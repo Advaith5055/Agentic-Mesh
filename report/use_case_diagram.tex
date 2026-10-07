@@ -1,0 +1,323 @@
+% ============================================================
+%  Agentic Mesh -- UML Use Case Diagram
+%  Compile:  pdflatex use_case_diagram.tex
+%  Or paste the tikzpicture block into Overleaf.
+% ============================================================
+\documentclass[tikz,border=20pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{
+    shapes.geometric,
+    arrows.meta,
+    positioning,
+    calc,
+    fit,
+    backgrounds,
+    decorations.pathreplacing
+}
+
+%--- colour palette (consistent with architecture_diagram.tex) ---
+\definecolor{SysBg}{RGB}{245,247,250}
+\definecolor{SysBorder}{RGB}{55,65,81}
+\definecolor{UCFill}{RGB}{219,234,254}
+\definecolor{UCBorder}{RGB}{37,99,235}
+\definecolor{UCPlanFill}{RGB}{224,242,254}
+\definecolor{UCPlanBorder}{RGB}{2,132,199}
+\definecolor{UCExecFill}{RGB}{209,250,229}
+\definecolor{UCExecBorder}{RGB}{13,148,136}
+\definecolor{UCMeshFill}{RGB}{237,233,254}
+\definecolor{UCMeshBorder}{RGB}{109,40,217}
+\definecolor{UCStoreFill}{RGB}{254,243,199}
+\definecolor{UCStoreBorder}{RGB}{180,83,9}
+\definecolor{ActorColor}{RGB}{55,65,81}
+\definecolor{IncludeColor}{RGB}{107,114,128}
+\definecolor{ExtendColor}{RGB}{156,163,175}
+%--------------------------------------------------------------
+
+\begin{document}
+\begin{tikzpicture}[
+    font=\sffamily,
+    >=Stealth,
+    % ── Actor stick-figure ──
+    actor/.style={
+        inner sep=0pt, outer sep=2pt,
+        label={[font=\small\bfseries\sffamily, below=2pt, ActorColor]below:#1}
+    },
+    % ── Use Case ellipse ──
+    uc/.style={
+        ellipse, draw=#1, fill=#2,
+        line width=1.1pt,
+        align=center,
+        font=\small\sffamily,
+        inner xsep=8pt, inner ysep=5pt,
+        minimum width=3.2cm, minimum height=1.1cm
+    },
+    % ── Association line ──
+    assoc/.style={-, line width=1.0pt, draw=ActorColor},
+    % ── Include / Extend dashed arrow ──
+    incl/.style={
+        ->, dashed, line width=0.9pt, draw=IncludeColor,
+        shorten >=3pt, shorten <=3pt
+    },
+    extd/.style={
+        ->, dashed, line width=0.9pt, draw=ExtendColor,
+        shorten >=3pt, shorten <=3pt
+    },
+    % ── Stereotype label ──
+    stlbl/.style={
+        font=\scriptsize\itshape\sffamily,
+        text=IncludeColor, fill=white, inner sep=1.5pt
+    }
+]
+
+% ══════════════════════════════════════════════════════════════
+% ACTORS  (left side and right side)
+% ══════════════════════════════════════════════════════════════
+
+% --- Operator (Human) — left ---
+\node[actor=Operator] (actOp) at (-9.5, -4.5) {};
+\draw[ActorColor, line width=1.2pt]
+    (actOp) ++(0, 0.55) circle (0.3)              % head
+    (actOp) ++(0, 0.25) -- ++(0, -0.6)            % body
+    (actOp) ++(-0.35, -0.05) -- ++(0.7, 0)        % arms
+    (actOp) ++(0, -0.35) -- ++(-0.25, -0.45)      % left leg
+    (actOp) ++(0, -0.35) -- ++(0.25, -0.45);      % right leg
+
+% --- LLM / Ollama — left-bottom ---
+\node[actor={LLM (Ollama)}] (actLLM) at (-9.5, -11.5) {};
+\draw[ActorColor, line width=1.2pt]
+    (actLLM) ++(0, 0.55) circle (0.3)
+    (actLLM) ++(0, 0.25) -- ++(0, -0.6)
+    (actLLM) ++(-0.35, -0.05) -- ++(0.7, 0)
+    (actLLM) ++(0, -0.35) -- ++(-0.25, -0.45)
+    (actLLM) ++(0, -0.35) -- ++(0.25, -0.45);
+
+% --- Peer Mesh (libp2p) — right ---
+\node[actor={Peer Mesh}] (actMesh) at (10.5, -6.0) {};
+\draw[ActorColor, line width=1.2pt]
+    (actMesh) ++(0, 0.55) circle (0.3)
+    (actMesh) ++(0, 0.25) -- ++(0, -0.6)
+    (actMesh) ++(-0.35, -0.05) -- ++(0.7, 0)
+    (actMesh) ++(0, -0.35) -- ++(-0.25, -0.45)
+    (actMesh) ++(0, -0.35) -- ++(0.25, -0.45);
+
+% --- SQLite Store — right-bottom ---
+\node[actor={SQLite Store}] (actDB) at (10.5, -12.5) {};
+\draw[ActorColor, line width=1.2pt]
+    (actDB) ++(0, 0.55) circle (0.3)
+    (actDB) ++(0, 0.25) -- ++(0, -0.6)
+    (actDB) ++(-0.35, -0.05) -- ++(0.7, 0)
+    (actDB) ++(0, -0.35) -- ++(-0.25, -0.45)
+    (actDB) ++(0, -0.35) -- ++(0.25, -0.45);
+
+% ══════════════════════════════════════════════════════════════
+% USE CASES — Operator / Dashboard Interactions  (top section)
+% ══════════════════════════════════════════════════════════════
+
+\node[uc=UCBorder!80!black, UCFill] (ucSubmit)
+    at (0, -0.0)  {Submit Natural\\Language Task};
+
+\node[uc=UCBorder!80!black, UCFill] (ucDirect)
+    at (0, -1.8) {Propose Direct\\Transaction};
+
+\node[uc=UCBorder!80!black, UCFill] (ucApprove)
+    at (0, -3.6) {Approve / Reject\\High-Risk Plan};
+
+\node[uc=UCBorder!80!black, UCFill] (ucDash)
+    at (0, -5.4) {Monitor Real-Time\\Dashboard};
+
+\node[uc=UCBorder!80!black, UCFill] (ucTopology)
+    at (4.5, -5.4) {View Mesh\\Topology};
+
+% ══════════════════════════════════════════════════════════════
+% USE CASES — Planner Node (middle-left section)
+% ══════════════════════════════════════════════════════════════
+
+\node[uc=UCPlanBorder, UCPlanFill] (ucClassify)
+    at (-3.8, -7.5) {Classify Prompt\\(AI / Direct)};
+
+\node[uc=UCPlanBorder, UCPlanFill] (ucPlan)
+    at (0.0, -7.5) {Generate SQL\\Operation Plan};
+
+\node[uc=UCPlanBorder, UCPlanFill] (ucRisk)
+    at (0.0, -9.3) {Assess Risk \&\\Safety Gate};
+
+\node[uc=UCPlanBorder, UCPlanFill] (ucAudit)
+    at (-3.8, -9.3) {Run AI Audit on\\Recent Transactions};
+
+\node[uc=UCPlanBorder, UCPlanFill] (ucServePlan)
+    at (-3.8, -11.3) {Serve Remote\\Plan Request};
+
+% ══════════════════════════════════════════════════════════════
+% USE CASES — Executor Node (middle-right section)
+% ══════════════════════════════════════════════════════════════
+
+\node[uc=UCExecBorder, UCExecFill] (ucAuth)
+    at (4.5, -7.5) {Enforce Role\\Authorisation};
+
+\node[uc=UCExecBorder, UCExecFill] (ucValidate)
+    at (4.5, -9.3) {Validate Schema\\Allowlist};
+
+\node[uc=UCExecBorder, UCExecFill] (ucExec)
+    at (4.5, -11.3) {Execute Atomic\\Transaction};
+
+% ══════════════════════════════════════════════════════════════
+% USE CASES — Mesh / Sync (bottom section)
+% ══════════════════════════════════════════════════════════════
+
+\node[uc=UCMeshBorder, UCMeshFill] (ucDiscover)
+    at (0.0, -13.5) {Discover Peers\\(mDNS)};
+
+\node[uc=UCMeshBorder, UCMeshFill] (ucGossip)
+    at (4.5, -13.5) {Broadcast Tx\\via GossipSub};
+
+\node[uc=UCMeshBorder, UCMeshFill] (ucSync)
+    at (-3.8, -13.5) {Sync Vector\\Clocks};
+
+\node[uc=UCMeshBorder, UCMeshFill] (ucPresence)
+    at (0.0, -15.3) {Broadcast Node\\Presence};
+
+\node[uc=UCStoreBorder, UCStoreFill] (ucReplicate)
+    at (4.5, -15.3) {Replicate to\\Local Store};
+
+% ══════════════════════════════════════════════════════════════
+% SYSTEM BOUNDARY BOX  (drawn behind everything)
+% ══════════════════════════════════════════════════════════════
+\begin{scope}[on background layer]
+  \node[draw=SysBorder, fill=SysBg, line width=1.6pt,
+        rounded corners=12pt,
+        fit=(ucSubmit)(ucDirect)(ucApprove)(ucDash)(ucTopology)
+            (ucClassify)(ucPlan)(ucRisk)(ucAudit)(ucServePlan)
+            (ucAuth)(ucValidate)(ucExec)
+            (ucDiscover)(ucGossip)(ucSync)(ucPresence)(ucReplicate),
+        inner sep=18pt
+  ] (sysbox) {};
+\end{scope}
+
+\node[fill=SysBorder, text=white,
+      font=\large\bfseries\sffamily,
+      inner sep=8pt, rounded corners=6pt,
+      anchor=south
+] at (sysbox.north) {Agentic Mesh --- Autonomous P2P Database System};
+
+% ══════════════════════════════════════════════════════════════
+% ASSOCIATIONS  (Actor ─── Use Case)
+% ══════════════════════════════════════════════════════════════
+
+% Operator associations
+\draw[assoc] (actOp) -- (ucSubmit);
+\draw[assoc] (actOp) -- (ucDirect);
+\draw[assoc] (actOp) -- (ucApprove);
+\draw[assoc] (actOp) -- (ucDash);
+
+% LLM associations
+\draw[assoc] (actLLM) -- (ucClassify);
+\draw[assoc] (actLLM) -- (ucPlan);
+\draw[assoc] (actLLM) -- (ucAudit);
+
+% Peer Mesh associations
+\draw[assoc] (actMesh) -- (ucDiscover);
+\draw[assoc] (actMesh) -- (ucGossip);
+\draw[assoc] (actMesh) -- (ucPresence);
+\draw[assoc] (actMesh) -- (ucTopology);
+\draw[assoc] (actMesh) -- (ucAuth);
+
+% SQLite Store associations
+\draw[assoc] (actDB) -- (ucExec);
+\draw[assoc] (actDB) -- (ucReplicate);
+\draw[assoc] (actDB) -- (ucSync);
+
+% ══════════════════════════════════════════════════════════════
+% <<include>> RELATIONSHIPS
+% ══════════════════════════════════════════════════════════════
+
+% Submit Task includes Classify Prompt
+\draw[incl] (ucSubmit) -- (ucClassify)
+    node[midway, stlbl, above, sloped] {$\ll$include$\gg$};
+
+% Classify includes Generate Plan (AI path)
+\draw[incl] (ucClassify) -- (ucPlan)
+    node[midway, stlbl, above] {$\ll$include$\gg$};
+
+% Generate Plan includes Risk Assessment
+\draw[incl] (ucPlan) -- (ucRisk)
+    node[midway, stlbl, right=1pt] {$\ll$include$\gg$};
+
+% Execute Transaction includes Schema Validation
+\draw[incl] (ucAuth) -- (ucValidate)
+    node[midway, stlbl, right=1pt] {$\ll$include$\gg$};
+
+\draw[incl] (ucValidate) -- (ucExec)
+    node[midway, stlbl, right=1pt] {$\ll$include$\gg$};
+
+% Execute includes Broadcast via GossipSub
+\draw[incl] (ucExec) -- (ucGossip)
+    node[midway, stlbl, above, sloped] {$\ll$include$\gg$};
+
+% Broadcast Tx includes Replicate
+\draw[incl] (ucGossip) -- (ucReplicate)
+    node[midway, stlbl, right=1pt] {$\ll$include$\gg$};
+
+% Discover Peers includes Presence
+\draw[incl] (ucDiscover) -- (ucPresence)
+    node[midway, stlbl, above] {$\ll$include$\gg$};
+
+% ══════════════════════════════════════════════════════════════
+% <<extend>> RELATIONSHIPS
+% ══════════════════════════════════════════════════════════════
+
+% Risk Assessment extends to Approve (if high-risk)
+\draw[extd] (ucApprove) -- (ucRisk)
+    node[midway, stlbl, above, sloped] {$\ll$extend$\gg$};
+
+% Direct Transaction extends Submit (fast path)
+\draw[extd] (ucDirect) -- (ucSubmit)
+    node[midway, stlbl, right=1pt] {$\ll$extend$\gg$};
+
+% Dashboard extends → View Topology
+\draw[extd] (ucTopology) -- (ucDash)
+    node[midway, stlbl, above] {$\ll$extend$\gg$};
+
+% Serve Remote Plan Request extends Generate Plan
+\draw[extd] (ucServePlan) -- (ucPlan)
+    node[midway, stlbl, above, sloped] {$\ll$extend$\gg$};
+
+% Audit extends risk assessment (background)
+\draw[extd] (ucAudit) -- (ucRisk)
+    node[midway, stlbl, above] {$\ll$extend$\gg$};
+
+% Sync Vector Clocks extends Replicate
+\draw[extd] (ucSync) -- (ucReplicate)
+    node[near start, stlbl, above, sloped] {$\ll$extend$\gg$};
+
+% ══════════════════════════════════════════════════════════════
+% SUBSYSTEM BOUNDARY LABELS  (dashed grouping)
+% ══════════════════════════════════════════════════════════════
+
+\begin{scope}[on background layer]
+  % Planner subsystem
+  \node[draw=UCPlanBorder, dashed, line width=1.0pt,
+        rounded corners=6pt, fill=UCPlanFill!20,
+        fit=(ucClassify)(ucPlan)(ucRisk)(ucAudit)(ucServePlan),
+        inner sep=10pt, label={[font=\scriptsize\bfseries\sffamily,
+        UCPlanBorder, anchor=south east]north east:Planner Subsystem}
+  ] {};
+
+  % Executor subsystem
+  \node[draw=UCExecBorder, dashed, line width=1.0pt,
+        rounded corners=6pt, fill=UCExecFill!20,
+        fit=(ucAuth)(ucValidate)(ucExec),
+        inner sep=10pt, label={[font=\scriptsize\bfseries\sffamily,
+        UCExecBorder, anchor=south west]north west:Executor Subsystem}
+  ] {};
+
+  % Mesh subsystem
+  \node[draw=UCMeshBorder, dashed, line width=1.0pt,
+        rounded corners=6pt, fill=UCMeshFill!20,
+        fit=(ucDiscover)(ucGossip)(ucSync)(ucPresence)(ucReplicate),
+        inner sep=10pt, label={[font=\scriptsize\bfseries\sffamily,
+        UCMeshBorder, anchor=south]north:P2P Mesh \& Replication Subsystem}
+  ] {};
+\end{scope}
+
+\end{tikzpicture}
+\end{document}

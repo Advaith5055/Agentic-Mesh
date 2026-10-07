@@ -12,6 +12,27 @@ dist
 dist-ssr
 *.local
 
+# Environment & secrets
+.env
+.env.*
+
+# Database files
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# Backups
+*-backup-*/
+data-backup-*/
+dashboard-backup-*/
+
+# Temp & scratch
+tmp/
+scratch/
+
+# Archives
+*.zip
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
