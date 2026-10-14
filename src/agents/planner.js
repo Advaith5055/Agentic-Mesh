@@ -3,58 +3,125 @@ import { askModel } from './ollama.js';
 import { getSchema, getDbState } from '../db/sqlite.js';
 import { validateModelPlan } from './model-validator.js';
 import { config } from '../utils/config.js';
+import { logger } from '../utils/logger.js';
+
+/**
+ * Builds a compact, high-density prompt for the Ollama planner brain.
+ * Keeps token count low for maximum inference speed and accuracy.
+ */
+function buildPlannerBrainPrompt(request, schemaDDL, state) {
+  const categorySample = (state.categories || []).map(c => `[id:${c.id}] ${c.name}`).join(', ');
+  const itemSample = (state.items || []).slice(0, 10).map(i => `[id:${i.id}] ${i.name} ($${i.price})`).join(', ');
+
+  return `You are the Autonomous Database Planner Brain for an Agentic Mesh node.
+Decompose the user instruction into structured database tool operations for SQLite.
+Do NOT output raw SQL queries.
+
+3NF SCHEMA:
+${schemaDDL}
+
+EXISTING DATA:
+- Categories: ${categorySample || 'None'}
+- Items sample: ${itemSample || 'None'}
+
+AVAILABLE OPERATIONS:
+1. INSERT category: {"operation": "INSERT", "table": "categories", "data": {"name": "...", "description": "..."}}
+2. INSERT item: {"operation": "INSERT", "table": "items", "data": {"category_id": N, "name": "...", "price": N, "sku": "..."}}
+3. UPDATE item: {"operation": "UPDATE", "table": "items", "data": {"id": N, "price": N}}
+4. DELETE item: {"operation": "DELETE", "table": "items", "data": {"id": N}}
+5. INSERT supplier: {"operation": "INSERT", "table": "suppliers", "data": {"name": "...", "contact_email": "..."}}
+
+INTELLIGENT REASONING RULES:
+1. FOREIGN KEY CHAINING: If inserting a new category and an item in that category, write:
+   [
+     {"operation": "INSERT", "table": "categories", "data": {"name": "...", "description": "..."}},
+     {"operation": "INSERT", "table": "items", "data": {"category_id": "$ref:0", "name": "...", "price": 999.99, "sku": "SKU-AUTO-101"}}
+   ]
+2. MAP EXISTING: If category already exists, map to its numeric id (e.g. 1).
+3. CONSTRAINTS: Price must be a positive number (> 0). SKU must be unique uppercase string.
+4. ONLY JSON: Output ONLY the compact JSON array of operation objects. No prose or explanations.
+
+USER INSTRUCTION: "${request}"`;
+}
 
 /**
  * Decomposes a natural language request into database operations using local LLM.
  * Does NOT give raw SQL access — generates structured database tool operations.
+ * Includes performance tracking and agentic self-correction reflection.
  *
  * @async
  * @param {string} naturalLanguageRequest - The user's prompt.
  * @param {Object} db - The SQLite database instance.
- * @param {Object} [options={}] - Extra options (e.g. model options).
+ * @param {Object} [options={}] - Extra options (e.g. model options, retries).
  * @returns {Promise<Object>} An object containing the decomposed plan operations.
  */
 export async function planOperations(naturalLanguageRequest, db, options = {}) {
+  const startTime = Date.now();
   try {
-    const schemaDDL = getSchema(db, { exclude: ['observations', '_mesh_log'] });
+    const schemaDDL = getSchema(db, { exclude: ['observations', '_mesh_log', 'task_messages'] });
     const state = getDbState(db);
 
-    const prompt = `You are a database operations planner for a 3NF SQLite database.
-Do NOT output raw SQL queries. Decompose the request into database tool operations.
-
-DATABASE SCHEMA:
-${schemaDDL}
-
-CURRENT DATA SNAPSHOT:
-Categories: ${JSON.stringify(state.categories || [])}
-Items (sample): ${JSON.stringify((state.items || []).slice(0, 20))}
-Suppliers: ${JSON.stringify(state.suppliers || [])}
-
-AVAILABLE TOOL OPERATIONS:
-1. INSERT category: { "operation": "INSERT", "table": "categories", "data": { "name": "...", "description": "..." } }
-2. INSERT item: { "operation": "INSERT", "table": "items", "data": { "category_id": N, "name": "...", "price": N, "sku": "..." } }
-3. UPDATE item: { "operation": "UPDATE", "table": "items", "data": { "id": N, "price": N, ... } }
-4. DELETE item: { "operation": "DELETE", "table": "items", "data": { "id": N } }
-
-RULES:
-- NEVER invent or re-insert existing rows. Always map category names to their existing "id" in CURRENT DATA (e.g. "Electronics" = 1, "Books" = 2, "Clothing" = 3).
-- If SKU is not specified, auto-generate a valid unique SKU (e.g. "SKU-AUTO-101").
-- If an operation needs the id of a row created by an EARLIER operation in this same plan, write the string "$ref:N" (where N is that operation's index, starting at 0), e.g. "category_id": "$ref:0".
-- If the user request contains "EXECUTOR FEEDBACK", carefully read the feedback and fix ONLY those issues.
-- If the user request asks to "Plan ONLY step X of Y", generate operations ONLY for that step.
-- Return ONLY a valid JSON array of operation objects. No explanations or Markdown code blocks outside the JSON. Compact JSON preferred.
-
-USER REQUEST: "${naturalLanguageRequest}"`;
+    const prompt = buildPlannerBrainPrompt(naturalLanguageRequest, schemaDDL, state);
 
     const rawResponse = await askModel(prompt, {
+      reqId: options.reqId || 'brain-plan',
       options: {
-        temperature: options.temperature ?? 0.2,
+        temperature: options.temperature ?? 0.1,
         num_ctx: options.num_ctx ?? config.OLLAMA_NUM_CTX,
-        num_predict: options.num_predict ?? config.OLLAMA_NUM_PREDICT
+        num_predict: options.num_predict ?? config.OLLAMA_NUM_PREDICT,
+        stop: ['\n\n\n', '```\n\n']
       }
     });
 
-    return parsePlanResponse(rawResponse);
+    let plan = parsePlanResponse(rawResponse);
+
+    // Agentic Self-Correction: if validation failed, ask Ollama to correct its own output
+    if (!plan.success && (options.maxRetries ?? 1) > 0 && rawResponse) {
+      logger.ai(`[Planner][Brain] Initial plan validation issue: ${plan.error}. Triggering self-correction reflection...`);
+      const correctionPrompt = `You are a database operations planner. Your previous JSON plan was rejected:
+VALIDATION ERROR: ${plan.error}
+PREVIOUS ATTEMPT:
+${rawResponse}
+
+SCHEMA:
+${schemaDDL}
+
+Fix the JSON array of operations so it strictly satisfies all schema allowlists, positive price constraints, and correct column names.
+Return ONLY the corrected JSON array. No explanations.`;
+
+      try {
+        const correctedRaw = await askModel(correctionPrompt, {
+          reqId: `${options.reqId || 'brain'}-fix`,
+          options: {
+            temperature: 0.1,
+            num_ctx: config.OLLAMA_NUM_CTX,
+            num_predict: config.OLLAMA_NUM_PREDICT,
+            stop: ['\n\n\n']
+          }
+        });
+        const correctedPlan = parsePlanResponse(correctedRaw);
+        if (correctedPlan.success) {
+          plan = correctedPlan;
+          plan.selfCorrected = true;
+          logger.ai(`[Planner][Brain] Self-correction successful! Formulated ${plan.operations.length} valid operations.`);
+        }
+      } catch (fixErr) {
+        logger.debug(`[Planner][Brain] Self-correction attempt error: ${fixErr.message}`);
+      }
+    }
+
+    const latencyMs = Date.now() - startTime;
+    if (plan.success) {
+      plan.metrics = {
+        latencyMs,
+        model: config.OLLAMA_MODEL,
+        operationCount: plan.operations.length,
+        selfCorrected: Boolean(plan.selfCorrected)
+      };
+      logger.ai(`[Planner][Brain] Plan formulated in ${latencyMs}ms (${plan.operations.length} operations, model: ${config.OLLAMA_MODEL})`);
+    }
+
+    return plan;
   } catch (error) {
     return { success: false, operations: [], raw: null, error: error.message };
   }

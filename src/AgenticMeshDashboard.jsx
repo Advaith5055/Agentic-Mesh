@@ -24,6 +24,7 @@ import {
   Info
 } from 'lucide-react';
 import AgentActivityPanel from './AgentActivityPanel.jsx';
+import LiveAgentConversationPanel from './LiveAgentConversationPanel.jsx';
 
 export default function AgenticMeshDashboard() {
   const graphRef = useRef();
@@ -45,7 +46,7 @@ export default function AgenticMeshDashboard() {
   });
 
   // Active Main Tab: Primary workflow experience + Demo Inventory section
-  // 'board' | 'topology' | 'replication' | 'audit' | 'chat' | 'activity' | 'inventory'
+  // 'board' | 'conversation' | 'topology' | 'replication' | 'audit' | 'chat' | 'activity' | 'inventory'
   const [activeTab, setActiveTab] = useState('board');
 
   // Distributed Agent Workflow Platform State
@@ -55,6 +56,8 @@ export default function AgenticMeshDashboard() {
   const [conflicts, setConflicts] = useState([]);
   const [replicationMetrics, setReplicationMetrics] = useState([]);
   const [auditEvents, setAuditEvents] = useState([]);
+  const [workflowMessages, setWorkflowMessages] = useState([]);
+  const [isTriggeringDemo, setIsTriggeringDemo] = useState(false);
   const [operationalMetrics, setOperationalMetrics] = useState({
     activeNodes: 0,
     taskSuccessRate: 100,
@@ -89,6 +92,8 @@ export default function AgenticMeshDashboard() {
   const [activeApproval, setActiveApproval] = useState(null);
   const [approvalReason, setApprovalReason] = useState('');
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
+  const [planningTaskIds, setPlanningTaskIds] = useState(new Set());
+  const [incomingPlanPopup, setIncomingPlanPopup] = useState(null);
 
   // Conflict Resolution Modal State
   const [activeConflict, setActiveConflict] = useState(null);
@@ -243,9 +248,53 @@ export default function AgenticMeshDashboard() {
     } catch { }
   }, [getApiUrl, apiKey]);
 
+  const fetchWorkflowMessages = useCallback(async (taskId = null) => {
+    try {
+      const url = taskId ? getApiUrl(`/tasks/${taskId}/messages`) : getApiUrl('/messages?limit=200');
+      const res = await fetch(url, { headers: { 'x-api-key': apiKey || 'mesh-dev-key' } });
+      if (res.ok) {
+        const msgs = await res.json();
+        setWorkflowMessages(msgs);
+      }
+    } catch {}
+  }, [getApiUrl, apiKey]);
+
+  const triggerCollaborativeDemoTask = useCallback(async () => {
+    setIsTriggeringDemo(true);
+    try {
+      addLog('Initiating Collaborative Mesh Intelligence Task...', 'ai');
+      const res = await fetch(getApiUrl('/demo/collaborative-task'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey || 'mesh-dev-key'
+        },
+        body: JSON.stringify({
+          prompt: 'Perform collaborative mesh audit and inventory intelligence synchronization: verify schema health, audit category distribution, and register operational analytics snapshot.'
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        addLog(`Demo task initiated: ${data.task?.id} (${data.task?.status})`, 'success');
+        setSelectedTaskId(data.task?.id);
+        setActiveTab('conversation');
+        fetchWorkflowData();
+        fetchWorkflowMessages(data.task?.id);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        addLog(`Demo task error: ${errData.error || 'Failed to trigger demo'}`, 'error');
+      }
+    } catch (err) {
+      addLog(`Failed to trigger demo task: ${err.message}`, 'error');
+    } finally {
+      setIsTriggeringDemo(false);
+    }
+  }, [getApiUrl, apiKey, addLog, fetchWorkflowData, fetchWorkflowMessages]);
+
   const refreshAll = useCallback(() => {
     addLog('Refreshing all platform telemetry...', 'system');
     fetchWorkflowData();
+    fetchWorkflowMessages(selectedTaskId);
     fetchDbState();
     fetchPeers();
     fetchMeshLogs();
@@ -276,14 +325,46 @@ export default function AgenticMeshDashboard() {
         break;
 
       case 'task:created':
+      case 'task:planning':
       case 'task:planned':
       case 'task:executed':
+      case 'task:completed':
+      case 'task:failed':
+      case 'task:status':
       case 'task:cancelled':
         fetchWorkflowData();
-        if (selectedTaskId && msg.data?.id === selectedTaskId) {
+        if (msg.data?.id) {
+          setTasks(prev => {
+            const idx = prev.findIndex(t => t.id === msg.data.id);
+            if (idx >= 0) {
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], ...msg.data };
+              return updated;
+            }
+            return [msg.data, ...prev];
+          });
+        }
+        if (selectedTaskId && (msg.data?.id === selectedTaskId || msg.data?.taskId === selectedTaskId)) {
           fetchTaskDetails(selectedTaskId);
         }
-        addLog(`Task event [${msg.type}]: ${msg.data?.title || msg.data?.taskId || ''}`, 'ai');
+        addLog(`Task event [${msg.type}]: ${msg.data?.title || msg.data?.id || ''} (${msg.data?.status || ''})`, 'ai');
+        break;
+
+      case 'approval:created':
+      case 'approval:decided':
+        fetchWorkflowData();
+        if (msg.data?.id) {
+          setApprovals(prev => {
+            const idx = prev.findIndex(a => a.id === msg.data.id);
+            if (idx >= 0) {
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], ...msg.data };
+              return updated;
+            }
+            return [msg.data, ...prev];
+          });
+        }
+        addLog(`Approval event [${msg.type}]: ${msg.data?.decision || 'pending'} for task ${msg.data?.task_id || ''}`, 'system');
         break;
 
       case 'node:registered':
@@ -305,6 +386,123 @@ export default function AgenticMeshDashboard() {
 
       case 'replication:metric':
         setReplicationMetrics(prev => [msg.data, ...prev.slice(0, 49)]);
+        break;
+
+      case 'agent:message': {
+        const d = msg.data || {};
+        const text = d.text || d.summary || d.message || '';
+        addLog(`[${d.sender_role || 'Agent'}] ${text}`, 'ai');
+        if (d.message_id || d.id) {
+          setWorkflowMessages(prev => {
+            const mId = d.message_id || d.id;
+            if (prev.some(m => (m.message_id === mId || m.id === mId))) return prev;
+            return [...prev, d];
+          });
+        }
+        setChatMessages(prev => {
+          if (d.id && prev.some(m => m.id === d.id)) return prev;
+          return [
+            ...prev,
+            {
+              id: d.id || d.message_id || `plan-msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              sender: d.sender || d.sender_role || 'planner',
+              text: text,
+              phase: d.phase,
+              plan: d.plan,
+              steps: d.plan?.ordered_steps || d.steps,
+              operations: d.operations || d.plan?.operations,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            }
+          ];
+        });
+        break;
+      }
+
+      case 'plan:popup': {
+        const payload = msg.data;
+        if (payload) {
+          setIncomingPlanPopup({
+            taskId: payload.taskId,
+            title: payload.title || payload.prompt || 'Incoming Mesh Plan',
+            prompt: payload.prompt || payload.title,
+            plan: payload.plan,
+            operations: payload.operations || [],
+            approval: payload.approval,
+            fromNode: payload.fromNode || 'delta (Planner)',
+            agenticStatus: 'Autonomous Executor active — validating 3NF constraints & executing agentically...',
+            completed: false,
+            timestamp: Date.now()
+          });
+        }
+        fetchWorkflowData();
+        break;
+      }
+
+      case 'plan:requested':
+      case 'plan:received':
+      case 'plan:validated':
+      case 'plan:failed':
+      case 'execution:requested': {
+        if (msg.type === 'execution:requested' && msg.data) {
+          const d = msg.data;
+          setIncomingPlanPopup(prev => prev || {
+            taskId: d.task_id || d.taskId,
+            title: d.title || d.summary || 'Incoming Execution Request',
+            prompt: d.prompt || d.user_prompt || d.summary,
+            plan: d.plan,
+            operations: d.operations || d.payload_metadata?.operations || [],
+            fromNode: d.sender_node || 'delta (Planner)',
+            agenticStatus: 'Autonomous Executor Agent active — executing agentically...',
+            completed: false,
+            timestamp: Date.now()
+          });
+        }
+        fetchWorkflowData();
+        fetchWorkflowMessages(selectedTaskId);
+        if (msg.data?.message_id) {
+          setWorkflowMessages(prev => {
+            if (prev.some(m => m.message_id === msg.data.message_id)) return prev;
+            return [...prev, msg.data];
+          });
+        }
+        addLog(`Workflow event [${msg.type}]: ${msg.data?.summary || msg.data?.title || msg.data?.taskId || ''}`, 'p2p');
+        break;
+      }
+
+      case 'execution:validated':
+      case 'execution:started':
+      case 'execution:completed':
+      case 'execution:failed':
+      case 'mesh:replication': {
+        fetchWorkflowData();
+        fetchWorkflowMessages(selectedTaskId);
+        if (msg.type === 'execution:completed') {
+          setIncomingPlanPopup(prev => prev ? {
+            ...prev,
+            agenticStatus: '✅ Agentically Approved & Executed! Replicated to Mesh.',
+            completed: true
+          } : null);
+        }
+        if (msg.data?.message_id) {
+          setWorkflowMessages(prev => {
+            if (prev.some(m => m.message_id === msg.data.message_id)) return prev;
+            return [...prev, msg.data];
+          });
+        }
+        addLog(`Workflow event [${msg.type}]: ${msg.data?.summary || msg.data?.title || msg.data?.taskId || ''}`, 'p2p');
+        break;
+      }
+
+      case 'plan:created':
+        fetchWorkflowData();
+        fetchWorkflowMessages(selectedTaskId);
+        if (selectedTaskId) fetchTaskDetails(selectedTaskId);
+        addLog(`Plan created for task ${msg.data?.taskId || ''} (${msg.data?.plan?.ordered_steps?.length || msg.data?.operations?.length || 0} steps)`, 'success');
+        break;
+
+      case 'step:assigned':
+        fetchWorkflowData();
+        addLog(`Step assigned [${msg.data?.stepId || msg.data?.step?.step_id}]: ${msg.data?.role} → ${msg.data?.assignedNodeId}`, 'p2p');
         break;
 
       case 'activity':
@@ -426,110 +624,104 @@ export default function AgenticMeshDashboard() {
 
   const handlePlanTask = async (taskId) => {
     try {
-      addLog(`Requesting planner node to decompose task ${taskId}...`, 'ai');
+      setPlanningTaskIds(prev => new Set(prev).add(taskId));
+      addLog(`Dispatching PLAN_REQUEST for task ${taskId} to remote planner...`, 'ai');
       const res = await fetch(getApiUrl(`/tasks/${taskId}/plan`), {
         method: 'POST',
-        headers: getApiHeaders(),
-        body: JSON.stringify({ plannerNodeId: nodeInfo.name })
+        headers: getApiHeaders()
       });
       if (res.ok) {
-        addLog(`Task ${taskId} planned successfully.`, 'success');
+        addLog(`Task ${taskId} planned successfully by planner node.`, 'success');
         fetchWorkflowData();
         fetchTaskDetails(taskId);
       } else {
         const err = await res.json().catch(() => ({}));
         addLog(`Planning failed: ${err.error || err.errors?.join(', ') || 'Failed'}`, 'error');
+        fetchWorkflowData();
       }
     } catch (err) {
       addLog(`Error planning task: ${err.message}`, 'error');
+    } finally {
+      setPlanningTaskIds(prev => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
     }
   };
 
-  const handleExecuteTask = async (taskId) => {
+  const handleDispatchTask = async (taskId) => {
     try {
-      const executorPeer = peers.find(p => (p.role === 'executor' || p.role === 'peer' || p.name === 'alpha'));
-      let targetUrl = getApiUrl(`/tasks/${taskId}/execute`);
-
-      if (nodeInfo.nodeRole === 'planner') {
-        let executorHost = null;
-        const executorPort = executorPeer?.wsPort || 3002;
-
-        if (executorPeer) {
-          if (executorPeer.ip && executorPeer.ip !== '127.0.0.1' && executorPeer.ip !== 'localhost') {
-            executorHost = executorPeer.ip;
-          } else if (Array.isArray(executorPeer.addrs)) {
-            for (const addr of executorPeer.addrs) {
-              const m = /^\/ip[46]\/([^/]+)\//.exec(addr);
-              if (m && m[1] && m[1] !== '127.0.0.1' && m[1] !== '0.0.0.0') {
-                executorHost = m[1];
-                break;
-              }
-            }
-          }
-        }
-
-        if (!executorHost) {
-          const matchingNode = nodes.find(n => (n.role === 'executor' || n.name === 'alpha') && n.address);
-          if (matchingNode?.address) {
-            const h = matchingNode.address.split(':')[0];
-            if (h && h !== '127.0.0.1' && h !== 'localhost' && h !== '0.0.0.0') executorHost = h;
-          }
-        }
-
-        const host = executorHost || '192.168.1.7';
-        targetUrl = `http://${host}:${executorPort}/api/tasks/${taskId}/execute`;
-        addLog(`Routing task execution to executor "${executorPeer?.name || 'alpha'}" at http://${host}:${executorPort}...`, 'db');
-      } else {
-        addLog(`Executor node initiating atomic execution for task ${taskId}...`, 'db');
-      }
-
-      const res = await fetch(targetUrl, {
+      addLog(`Dispatching planned task ${taskId} to Executor...`, 'system');
+      const res = await fetch(getApiUrl(`/tasks/${taskId}/dispatch`), {
         method: 'POST',
         headers: getApiHeaders(),
-        body: JSON.stringify({
-          executorNodeId: executorPeer?.name ? `node-${executorPeer.name}` : undefined
-        })
+        body: JSON.stringify({ requested_by: nodeInfo.name })
       });
       if (res.ok) {
-        const outcome = await res.json();
-        if (outcome.success) {
-          addLog(`Task ${taskId} committed and verified!`, 'success');
-        } else {
-          addLog(`Task ${taskId} execution failed: ${outcome.error}`, 'error');
+        const data = await res.json();
+        addLog(`Task ${taskId} dispatched to Executor. Awaiting human approval sign-off.`, 'warn');
+        fetchWorkflowData();
+        fetchTaskDetails(taskId);
+        if (data.approval) {
+          setActiveApproval(data.approval);
         }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        addLog(`Dispatch rejected: ${err.error || err.errors?.join(', ') || 'Conflict'}`, 'error');
+      }
+    } catch (err) {
+      addLog(`Error dispatching task: ${err.message}`, 'error');
+    }
+  };
+
+  const handleExecuteApprovedTask = async (taskId) => {
+    try {
+      addLog(`Executing approved task ${taskId} on Executor...`, 'system');
+      const res = await fetch(getApiUrl(`/tasks/${taskId}/execute`), {
+        method: 'POST',
+        headers: getApiHeaders(),
+        body: JSON.stringify({ executorNodeId: nodeInfo.name })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        addLog(`Task ${taskId} executed successfully! State mutated atomically.`, 'success');
         fetchWorkflowData();
         fetchTaskDetails(taskId);
       } else {
         const err = await res.json().catch(() => ({}));
-        addLog(`Execution rejected: ${err.error || err.errors?.join(', ') || 'Forbidden'}`, 'error');
+        addLog(`Execution rejected: ${err.error || err.errors?.join(', ') || 'Failed'}`, 'error');
       }
     } catch (err) {
-      addLog(`Error executing task: ${err.message}`, 'error');
+      addLog(`Error executing approved task: ${err.message}`, 'error');
     }
   };
 
-  const handleDecision = async (decision) => {
-    if (!activeApproval) return;
+  const handleDecision = async (decision, approvalId = null, reason = null) => {
+    const targetApproval = approvalId ? approvals.find(a => a.id === approvalId) : activeApproval;
+    if (!targetApproval) return;
     setIsSubmittingApproval(true);
     try {
-      const res = await fetch(getApiUrl(`/approvals/${activeApproval.id}/decide`), {
+      const decisionReason = reason !== null ? reason : approvalReason;
+      const res = await fetch(getApiUrl(`/approvals/${targetApproval.id}/decide`), {
         method: 'POST',
         headers: getApiHeaders(),
         body: JSON.stringify({
           decision,
-          reviewer: 'operator:dashboard',
-          reason: approvalReason || `Decision submitted via dashboard: ${decision}`
+          reviewer: `operator:${nodeInfo.name}`,
+          reason: decisionReason || `Decision submitted via dashboard: ${decision}`
         })
       });
       if (res.ok) {
-        addLog(`Approval ${activeApproval.id} set to ${decision}.`, 'success');
+        const data = await res.json();
+        addLog(`Approval ${targetApproval.id} set to ${decision}. ${decision === 'approved' ? 'Executing atomically...' : ''}`, decision === 'approved' ? 'success' : 'warn');
         setActiveApproval(null);
         setApprovalReason('');
         fetchWorkflowData();
-        if (selectedTaskId) fetchTaskDetails(selectedTaskId);
+        if (targetApproval.task_id) fetchTaskDetails(targetApproval.task_id);
       } else {
         const err = await res.json().catch(() => ({}));
-        addLog(`Approval submission failed: ${err.error || err.errors?.join(', ')}`, 'error');
+        addLog(`Approval decision failed: ${err.error || err.errors?.join(', ')}`, 'error');
       }
     } catch (err) {
       addLog(`Error submitting approval: ${err.message}`, 'error');
@@ -636,12 +828,16 @@ export default function AgenticMeshDashboard() {
       queued: [],
       planned: [],
       awaiting_approval: [],
+      approved: [],
       executing: [],
       completed: [],
-      failed: []
+      failed: [],
+      rejected: []
     };
     tasks.forEach(t => {
-      if (groups[t.status]) {
+      if (t.status === 'planning') {
+        groups.queued.push(t);
+      } else if (groups[t.status]) {
         groups[t.status].push(t);
       } else {
         groups.queued.push(t);
@@ -736,7 +932,9 @@ export default function AgenticMeshDashboard() {
             <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
               <span className="text-slate-300 font-bold">{nodeInfo.name}</span>
               <span>·</span>
-              <span className="text-emerald-400 capitalize">{nodeInfo.nodeRole} Node</span>
+              <span className={`${nodeInfo.nodeRole === 'planner' ? 'text-blue-400 font-bold' : 'text-emerald-400 font-bold'} capitalize`}>
+                {nodeInfo.nodeRole} Node
+              </span>
               <span>·</span>
               <span className="text-slate-500 truncate max-w-[120px]">{nodeInfo.peerId}</span>
             </div>
@@ -908,6 +1106,23 @@ export default function AgenticMeshDashboard() {
           </button>
 
           <button
+            onClick={() => {
+              setActiveTab('conversation');
+              fetchWorkflowMessages(selectedTaskId);
+            }}
+            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${activeTab === 'conversation'
+                ? 'bg-blue-600/20 text-blue-300 border border-blue-500/40 shadow-sm'
+                : 'text-slate-400 hover:text-blue-200 hover:bg-slate-800/50'
+              }`}
+          >
+            <MessageSquare size={14} className="text-blue-400" />
+            <span>Live Agent Conversation</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-blue-900/50 text-[10px] text-blue-300 border border-blue-500/30 font-mono">
+              {workflowMessages.length}
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('topology')}
             className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${activeTab === 'topology'
                 ? 'bg-cyan-600/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
@@ -1000,6 +1215,34 @@ export default function AgenticMeshDashboard() {
       {/* ─────────────────────────────────────────────────────────────────── */}
       <main className="flex-1 overflow-hidden relative flex">
 
+        {/* ── TAB: LIVE AGENT CONVERSATION PANEL ──────────────────────────── */}
+        {activeTab === 'conversation' && (
+          <div className="flex-1 p-5 overflow-hidden">
+            <LiveAgentConversationPanel
+              messages={workflowMessages}
+              tasks={tasks}
+              selectedTaskId={selectedTaskId}
+              onSelectTask={(id) => {
+                setSelectedTaskId(id);
+                fetchWorkflowMessages(id);
+                if (id) fetchTaskDetails(id);
+              }}
+              onTriggerDemoTask={triggerCollaborativeDemoTask}
+              onApproveTask={(apprId, tId) => {
+                const appr = approvals.find(a => a.id === apprId || a.task_id === tId);
+                if (appr) {
+                  setActiveApproval(appr);
+                } else if (apprId) {
+                  setActiveApproval({ id: apprId, task_id: tId });
+                }
+              }}
+              approvals={approvals}
+              isTriggeringDemo={isTriggeringDemo}
+              onRefresh={() => fetchWorkflowMessages(selectedTaskId)}
+            />
+          </div>
+        )}
+
         {/* ── TAB 1: PRODUCTION TASK WORKFLOW KANBAN BOARD ────────────────── */}
         {activeTab === 'board' && (
           <div className="flex-1 flex flex-col p-5 overflow-hidden">
@@ -1039,6 +1282,7 @@ export default function AgenticMeshDashboard() {
                     <TaskCard
                       key={task.id}
                       task={task}
+                      isPlanning={task.status === 'planning' || planningTaskIds.has(task.id)}
                       onSelect={() => { setSelectedTaskId(task.id); fetchTaskDetails(task.id); }}
                       onPlan={() => handlePlanTask(task.id)}
                     />
@@ -1066,7 +1310,7 @@ export default function AgenticMeshDashboard() {
                       key={task.id}
                       task={task}
                       onSelect={() => { setSelectedTaskId(task.id); fetchTaskDetails(task.id); }}
-                      onExecute={() => handleExecuteTask(task.id)}
+                      onDispatch={() => handleDispatchTask(task.id)}
                     />
                   ))}
                   {tasksByStatus.planned.length === 0 && (
@@ -1096,6 +1340,8 @@ export default function AgenticMeshDashboard() {
                         approval={app}
                         onSelect={() => { setSelectedTaskId(task.id); fetchTaskDetails(task.id); }}
                         onReviewApproval={() => { if (app) setActiveApproval(app); }}
+                        onApprove={(reason) => handleDecision('approved', app?.id, reason)}
+                        onReject={(reason) => handleDecision('rejected', app?.id, reason)}
                       />
                     );
                   })}
@@ -1105,7 +1351,33 @@ export default function AgenticMeshDashboard() {
                 </div>
               </div>
 
-              {/* Column 4: Executing */}
+              {/* Column 4: Approved */}
+              <div className="flex flex-col bg-slate-900/50 border border-teal-950/60 rounded-2xl p-3 min-w-[240px]">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-teal-900/40">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-teal-300">
+                    <span className="w-2 h-2 rounded-full bg-teal-400" />
+                    <span>Approved</span>
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded-md bg-teal-950/60 text-[10px] font-mono text-teal-400">
+                    {tasksByStatus.approved.length}
+                  </span>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                  {tasksByStatus.approved.map(task => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onSelect={() => { setSelectedTaskId(task.id); fetchTaskDetails(task.id); }}
+                      onExecuteApproved={() => handleExecuteApprovedTask(task.id)}
+                    />
+                  ))}
+                  {tasksByStatus.approved.length === 0 && (
+                    <div className="text-center py-8 text-xs text-slate-600 italic">No approved tasks</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Column 5: Executing */}
               <div className="flex flex-col bg-slate-900/50 border border-purple-950/60 rounded-2xl p-3 min-w-[240px]">
                 <div className="flex items-center justify-between pb-2 mb-2 border-b border-purple-900/40">
                   <div className="flex items-center gap-1.5 font-bold text-xs text-purple-300">
@@ -1207,11 +1479,11 @@ export default function AgenticMeshDashboard() {
                   ctx.fillText(node.id, node.x, node.y + 12);
                 }}
                 nodeColor={node => {
-                  if (node.role === 'planner') return '#38bdf8';
-                  if (node.role === 'executor') return '#34d399';
-                  if (node.role === 'validator') return '#a855f7';
-                  if (node.role === 'router') return '#fbbf24';
-                  return '#06b6d4';
+                  if (node.role === 'planner' || node.id === 'delta' || node.id === 'node-delta') return '#2563eb';
+                  if (node.role === 'executor' || node.id === 'alpha' || node.id === 'node-alpha') return '#10b981';
+                  if (node.role === 'validator') return '#8b5cf6';
+                  if (node.role === 'router') return '#f59e0b';
+                  return '#2563eb';
                 }}
                 nodeRelSize={9}
                 linkColor={() => '#334155'}
@@ -1222,8 +1494,8 @@ export default function AgenticMeshDashboard() {
               />
               <div className="absolute top-4 left-4 bg-slate-900/90 border border-slate-800 p-3 rounded-xl text-xs backdrop-blur shadow-xl space-y-1.5">
                 <div className="font-bold text-slate-300 font-mono">Topology Legend</div>
-                <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-sky-400" /><span>Planner Node</span></div>
-                <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400" /><span>Executor Node</span></div>
+                <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_8px_#2563eb]" /><span className="text-blue-300 font-semibold">Planner Node (Blue)</span></div>
+                <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400" /><span className="text-slate-300">Executor Node (Green)</span></div>
                 <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-purple-400" /><span>Validator Node</span></div>
                 <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-amber-400" /><span>Router Node</span></div>
               </div>
@@ -1238,17 +1510,20 @@ export default function AgenticMeshDashboard() {
                 <span className="text-[10px] text-cyan-400 font-mono">GossipSub Active</span>
               </div>
 
-              {nodes.map(n => (
-                <div key={n.id} className="p-3 rounded-xl bg-slate-950/80 border border-slate-800/90 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${n.status === 'active' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-                      <span className="font-bold text-xs text-slate-100">{n.name}</span>
+              {nodes.map(n => {
+                const isPlanner = n.role === 'planner' || n.name === 'delta';
+                const isExecutor = n.role === 'executor' || (n.name === 'alpha' && !isPlanner);
+                return (
+                  <div key={n.id} className={`p-3 rounded-xl bg-slate-950/80 border ${isPlanner ? 'border-blue-500/80 shadow-[0_0_15px_rgba(37,99,235,0.25)] ring-1 ring-blue-500/40' : 'border-slate-800/90'} space-y-2`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${isPlanner ? 'bg-blue-500 shadow-[0_0_8px_#2563eb]' : n.status === 'active' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                        <span className={`font-bold text-xs ${isPlanner ? 'text-blue-300 font-mono' : 'text-slate-100'}`}>{n.name}</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono uppercase font-bold border ${isPlanner ? 'bg-blue-600 text-white border-blue-400 shadow-sm' : isExecutor ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
+                        {isPlanner ? 'planner' : n.role}
+                      </span>
                     </div>
-                    <span className="px-2 py-0.5 rounded-md bg-slate-800 text-[10px] font-mono text-cyan-300 uppercase">
-                      {n.role}
-                    </span>
-                  </div>
 
                   <div className="text-[11px] font-mono text-slate-400 space-y-1">
                     <div>Address: <span className="text-slate-300">{n.address || '127.0.0.1'}</span></div>
@@ -1264,7 +1539,8 @@ export default function AgenticMeshDashboard() {
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
 
           </div>
@@ -1425,7 +1701,51 @@ export default function AgenticMeshDashboard() {
                   )}
                   <div className={`p-3 rounded-2xl max-w-xl ${msg.sender === 'user' ? 'bg-cyan-600 text-white rounded-tr-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'
                     }`}>
-                    <div>{msg.text}</div>
+                    <div className="font-sans">{msg.text}</div>
+
+                    {msg.plan && (
+                      <div className="mt-2.5 pt-2 border-t border-slate-800/80 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-[10px] text-cyan-300 font-semibold truncate" title={msg.plan.goal}>
+                            Goal: {msg.plan.goal || 'Mesh Task Plan'}
+                          </span>
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase shrink-0 ${
+                            msg.plan.risk_level === 'high' ? 'bg-rose-950 text-rose-300 border border-rose-800/60' :
+                            msg.plan.risk_level === 'medium' ? 'bg-amber-950 text-amber-300 border border-amber-800/60' :
+                            'bg-emerald-950 text-emerald-300 border border-emerald-800/60'
+                          }`}>
+                            {msg.plan.risk_level || 'low'} risk
+                          </span>
+                        </div>
+
+                        {msg.plan.ordered_steps && Array.isArray(msg.plan.ordered_steps) && (
+                          <div className="space-y-1.5 pt-1">
+                            {msg.plan.ordered_steps.map((st, i) => (
+                              <div key={st.step_id || i} className="p-2 rounded-lg bg-slate-950/80 border border-slate-800/70 text-[11px] space-y-1">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="font-semibold text-slate-200">{st.step_id}: {st.title}</span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono uppercase font-bold shrink-0 ${
+                                    st.responsible_role === 'planner' ? 'bg-blue-900/60 text-blue-300 border border-blue-700/50' :
+                                    st.responsible_role === 'executor' ? 'bg-emerald-900/60 text-emerald-300 border border-emerald-700/50' :
+                                    st.responsible_role === 'validator' ? 'bg-purple-900/60 text-purple-300 border border-purple-700/50' :
+                                    'bg-slate-800 text-slate-300 border border-slate-700'
+                                  }`}>
+                                    {st.responsible_role} → {st.assigned_node_id}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-mono">{st.goal}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono pt-1">
+                          <span>Validation: <strong className="text-emerald-400 font-semibold">{msg.plan.validation_status || 'valid'}</strong></span>
+                          <span>Ops: <strong className="text-cyan-300 font-semibold">{msg.plan.operations?.length || 0}</strong></span>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="text-[10px] text-slate-400 mt-1.5 text-right font-mono">{msg.timestamp}</div>
                   </div>
                 </div>
@@ -1732,6 +2052,16 @@ export default function AgenticMeshDashboard() {
                         Review Sign-Off Request
                       </button>
                     )}
+                    <button
+                      onClick={() => {
+                        setActiveTab('conversation');
+                        fetchWorkflowMessages(selectedTaskId);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 border border-blue-500/40 font-bold flex items-center gap-1.5 cursor-pointer ml-auto"
+                    >
+                      <MessageSquare size={14} className="text-blue-400" />
+                      <span>Live Conversation</span>
+                    </button>
                   </div>
 
                   {/* Plan Steps */}
@@ -1972,6 +2302,117 @@ export default function AgenticMeshDashboard() {
       )}
 
       {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* MODAL: INCOMING PLAN POPUP (CONNECTED NODE / EXECUTOR VIEW) */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {incomingPlanPopup && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-gradient-to-b from-slate-900 to-slate-950 border border-cyan-500/40 rounded-2xl shadow-2xl shadow-cyan-950/50 p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+                </span>
+                <div>
+                  <h3 className="font-bold text-sm text-cyan-300 flex items-center gap-2">
+                    <span>Incoming Plan & Request</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-950 border border-cyan-500/40 text-cyan-400">
+                      {incomingPlanPopup.fromNode || 'Remote Node'}
+                    </span>
+                  </h3>
+                  <div className="text-[11px] text-slate-400">Collaborative Mesh Request received from connected laptop</div>
+                </div>
+              </div>
+              <button onClick={() => setIncomingPlanPopup(null)} className="text-slate-500 hover:text-white cursor-pointer transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Task Title & Prompt */}
+            <div className="space-y-2">
+              <div className="text-xs font-semibold text-slate-200 font-mono flex items-center justify-between">
+                <span>Task: {incomingPlanPopup.title}</span>
+                <span className="text-[10px] text-slate-500">{incomingPlanPopup.taskId}</span>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80 text-xs text-slate-300 font-sans leading-relaxed">
+                "{incomingPlanPopup.prompt}"
+              </div>
+            </div>
+
+            {/* Operations preview */}
+            {incomingPlanPopup.operations && incomingPlanPopup.operations.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-mono text-slate-400 font-semibold flex items-center justify-between">
+                  <span>Planned Database Operations ({incomingPlanPopup.operations.length})</span>
+                  <span className="text-[10px] text-emerald-400 font-mono">3NF Verified</span>
+                </div>
+                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                  {incomingPlanPopup.operations.map((op, idx) => (
+                    <div key={idx} className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          op.operation === 'INSERT' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
+                          op.operation === 'UPDATE' ? 'bg-cyan-950 text-cyan-400 border border-cyan-800' :
+                          'bg-rose-950 text-rose-400 border border-rose-800'
+                        }`}>
+                          {op.operation}
+                        </span>
+                        <span className="text-slate-300 font-semibold">{op.table || op.tableName}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 truncate max-w-[200px]">
+                        {JSON.stringify(op.data || {})}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Agentic Execution Status Banner */}
+            <div className={`p-3 rounded-xl border flex items-center gap-3 ${
+              incomingPlanPopup.completed
+                ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                : 'bg-cyan-950/40 border-cyan-500/40 text-cyan-300'
+            }`}>
+              <Cpu size={18} className={incomingPlanPopup.completed ? 'text-emerald-400' : 'text-cyan-400 animate-pulse'} />
+              <div className="text-xs">
+                <div className="font-bold">Autonomous Executor Agent (alpha)</div>
+                <div className="text-[11px] text-slate-300">
+                  {incomingPlanPopup.agenticStatus || 'Agentically validating schemas, approving plan, and committing to SQLite...'}
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+              <span className="text-[11px] text-slate-500 font-mono">
+                {incomingPlanPopup.completed ? 'Status: Completed & Replicated' : 'Auto-executing agentically...'}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIncomingPlanPopup(null);
+                    setActiveTab('board');
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  View on Board
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIncomingPlanPopup(null)}
+                  className="px-4 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold cursor-pointer transition-colors shadow-lg shadow-cyan-900/40"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────── */}
       {/* MODAL: CONFLICT RESOLUTION */}
       {/* ─────────────────────────────────────────────────────────────────── */}
       {activeConflict && (
@@ -2032,10 +2473,7 @@ export default function AgenticMeshDashboard() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TASK CARD COMPONENT FOR KANBAN COLUMNS
-// ─────────────────────────────────────────────────────────────────────────────
-function TaskCard({ task, approval, onSelect, onPlan, onExecute, onReviewApproval }) {
+function TaskCard({ task, approval, isPlanning, onSelect, onPlan, onDispatch, onExecuteApproved, onReviewApproval, onApprove, onReject }) {
   const priorityColors = {
     critical: 'text-rose-400 bg-rose-950/60 border-rose-500/40',
     high: 'text-amber-400 bg-amber-950/60 border-amber-500/40',
@@ -2043,11 +2481,43 @@ function TaskCard({ task, approval, onSelect, onPlan, onExecute, onReviewApprova
     low: 'text-slate-400 bg-slate-900 border-slate-700'
   };
 
+  let parsedOps = [];
+  if (task.operations) {
+    try {
+      parsedOps = typeof task.operations === 'string' ? JSON.parse(task.operations) : task.operations;
+    } catch {}
+  }
+  if (!Array.isArray(parsedOps) && approval?.operations) {
+    try {
+      parsedOps = typeof approval.operations === 'string' ? JSON.parse(approval.operations) : approval.operations;
+    } catch {}
+  }
+
+  let parsedPlan = null;
+  if (task.plan) {
+    try {
+      parsedPlan = typeof task.plan === 'string' ? JSON.parse(task.plan) : task.plan;
+    } catch {}
+  }
+
+  const isPlanned = task.status === 'planned';
+  const isAwaitingApproval = task.status === 'awaiting_approval';
+  const isApproved = task.status === 'approved';
+  const isCurrentlyPlanning = isPlanning || task.status === 'planning';
+  const canExecute = isPlanned && Array.isArray(parsedOps) && parsedOps.length > 0;
+
   return (
     <div
       onClick={onSelect}
-      className="group p-3 rounded-xl bg-slate-950/90 border border-slate-800/90 hover:border-cyan-500/50 transition cursor-pointer shadow-sm space-y-2 select-none"
+      className={`group p-3 rounded-xl bg-slate-950/90 border transition cursor-pointer shadow-sm space-y-2 select-none ${
+        isAwaitingApproval
+          ? 'border-amber-500/40 hover:border-amber-400'
+          : isPlanned
+          ? 'border-cyan-500/40 hover:border-cyan-400'
+          : 'border-slate-800/90 hover:border-cyan-500/50'
+      }`}
     >
+      {/* Top Header: Priority + ID */}
       <div className="flex items-center justify-between">
         <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase border ${priorityColors[task.priority] || priorityColors.medium}`}>
           {task.priority}
@@ -2055,22 +2525,109 @@ function TaskCard({ task, approval, onSelect, onPlan, onExecute, onReviewApprova
         <span className="text-[10px] font-mono text-slate-500">{task.id?.slice(0, 8)}</span>
       </div>
 
+      {/* Task Title */}
       <div className="font-bold text-xs text-slate-100 group-hover:text-cyan-300 transition line-clamp-2 leading-snug">
         {task.title}
       </div>
 
+      {/* Original User Request / Prompt */}
       <div className="text-[11px] text-slate-400 line-clamp-2 leading-tight">
         {task.user_prompt}
       </div>
 
-      {approval && (
-        <div className="text-[10px] font-mono text-amber-300 bg-amber-950/40 border border-amber-500/30 px-2 py-0.5 rounded">
-          Requires {approval.risk_level} Sign-off
+      {/* Visible Planning / Loading State */}
+      {isCurrentlyPlanning && (
+        <div className="flex items-center gap-1.5 text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/30 px-2 py-1 rounded-lg animate-pulse">
+          <RefreshCw size={11} className="animate-spin text-cyan-400 shrink-0" />
+          <span>Planning on remote planner...</span>
         </div>
       )}
 
+      {/* Planned Task Display: Planner Identity, Explanation, Ordered Ops, Validation */}
+      {isPlanned && (
+        <div className="space-y-1.5 pt-1 border-t border-slate-900 font-mono text-[10px]">
+          {/* Planner node / peer ID */}
+          <div className="flex items-center justify-between text-slate-400">
+            <span>Planner:</span>
+            <span className="text-cyan-300 font-bold truncate max-w-[140px]" title={task.planner_peer_id || task.assigned_node_id}>
+              {task.planner_peer_id?.slice(0, 12) || task.assigned_node_id || 'remote-planner'}
+            </span>
+          </div>
+
+          {/* Plan Explanation */}
+          {(parsedPlan?.explanation || parsedPlan?.summary) && (
+            <div className="text-[10px] text-slate-300 bg-slate-900/80 p-1.5 rounded border border-slate-800/80 italic leading-snug">
+              {parsedPlan.explanation || parsedPlan.summary}
+            </div>
+          )}
+
+          {/* Ordered Operations List */}
+          {Array.isArray(parsedOps) && parsedOps.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-slate-500 text-[9px] uppercase tracking-wider">Ordered Operations ({parsedOps.length}):</div>
+              <div className="space-y-0.5 max-h-20 overflow-y-auto">
+                {parsedOps.map((op, i) => (
+                  <div key={i} className="flex items-center justify-between bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-800 text-[10px]">
+                    <span className="text-cyan-400 font-bold">{i + 1}. {op.operation}</span>
+                    <span className="text-slate-300">{op.table}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Validation Status & Timestamp */}
+          <div className="flex items-center justify-between pt-0.5">
+            <span className="text-[9px] text-emerald-400 bg-emerald-950/50 px-1.5 py-0.2 rounded border border-emerald-500/30">
+              ✓ Validated
+            </span>
+            <span className="text-[9px] text-slate-500">
+              {new Date(task.updated_at || task.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Awaiting Approval Display: Risk level, Operations preview */}
+      {isAwaitingApproval && (
+        <div className="space-y-1.5 pt-1 border-t border-slate-900 font-mono text-[10px]">
+          <div className="flex items-center justify-between text-amber-300 bg-amber-950/40 border border-amber-500/30 px-2 py-0.5 rounded">
+            <span>Risk Level:</span>
+            <span className="font-bold uppercase text-amber-400">{approval?.risk_level || 'medium'}</span>
+          </div>
+
+          {Array.isArray(parsedOps) && parsedOps.length > 0 && (
+            <div className="space-y-0.5">
+              <div className="text-slate-500 text-[9px] uppercase tracking-wider">Operations to Execute ({parsedOps.length}):</div>
+              {parsedOps.slice(0, 2).map((op, i) => (
+                <div key={i} className="flex items-center justify-between bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-800 text-[10px]">
+                  <span className="text-amber-400 font-bold">{op.operation}</span>
+                  <span className="text-slate-300">{op.table}</span>
+                </div>
+              ))}
+              {parsedOps.length > 2 && (
+                <div className="text-[9px] text-slate-500 italic">+{parsedOps.length - 2} more operations</div>
+              )}
+            </div>
+          )}
+
+          <div className="text-[9px] text-slate-400 flex items-center justify-between">
+            <span>Planner: {task.planner_peer_id?.slice(0, 10) || task.assigned_node_id || 'remote'}</span>
+            <span className="text-emerald-400">Validated</span>
+          </div>
+        </div>
+      )}
+
+      {/* Execution Results / Error Display */}
+      {task.status === 'failed' && task.error && (
+        <div className="text-[10px] font-mono text-rose-300 bg-rose-950/40 border border-rose-500/30 p-1.5 rounded leading-tight break-all">
+          {task.error}
+        </div>
+      )}
+
+      {/* Footer Info */}
       <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 pt-1 border-t border-slate-900">
-        <span>{task.assigned_node_id || 'unassigned'}</span>
+        <span>{task.assigned_node_id || 'mesh-auto'}</span>
         <span>{task.task_type}</span>
       </div>
 
@@ -2079,26 +2636,68 @@ function TaskCard({ task, approval, onSelect, onPlan, onExecute, onReviewApprova
         {task.status === 'queued' && onPlan && (
           <button
             onClick={onPlan}
-            className="px-2 py-0.5 rounded bg-cyan-600/30 hover:bg-cyan-600 text-cyan-300 hover:text-white text-[10px] font-mono font-bold transition cursor-pointer"
+            disabled={isCurrentlyPlanning}
+            className="flex items-center gap-1 px-2.5 py-1 rounded bg-cyan-600/30 hover:bg-cyan-600 text-cyan-300 hover:text-white text-[10px] font-mono font-bold transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Plan
+            {isCurrentlyPlanning ? (
+              <>
+                <RefreshCw size={10} className="animate-spin" />
+                <span>Planning...</span>
+              </>
+            ) : (
+              <span>Plan</span>
+            )}
           </button>
         )}
-        {task.status === 'planned' && onExecute && (
+
+        {isPlanned && onDispatch && (
           <button
-            onClick={onExecute}
-            className="px-2 py-0.5 rounded bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white text-[10px] font-mono font-bold transition cursor-pointer"
+            onClick={onDispatch}
+            disabled={!canExecute}
+            title={!canExecute ? 'Dispatch disabled: operations required' : 'Dispatch plan to Executor node for review and approval'}
+            className="px-2.5 py-1 rounded bg-cyan-600/30 hover:bg-cyan-600 text-cyan-300 hover:text-white text-[10px] font-mono font-bold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Execute
+            Dispatch to Executor
           </button>
         )}
-        {task.status === 'awaiting_approval' && onReviewApproval && (
+
+        {isApproved && onExecuteApproved && (
           <button
-            onClick={onReviewApproval}
-            className="px-2 py-0.5 rounded bg-amber-600/40 hover:bg-amber-600 text-amber-200 hover:text-white text-[10px] font-mono font-bold transition cursor-pointer"
+            onClick={onExecuteApproved}
+            title="Execute approved plan on Executor node"
+            className="px-2.5 py-1 rounded bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white text-[10px] font-mono font-bold transition cursor-pointer"
           >
-            Sign Off
+            Execute Approved Plan
           </button>
+        )}
+
+        {isAwaitingApproval && (
+          <div className="flex items-center gap-1">
+            {onReject && (
+              <button
+                onClick={() => onReject('Rejected by dashboard operator')}
+                className="px-2 py-0.5 rounded bg-rose-950/60 hover:bg-rose-600 text-rose-300 hover:text-white text-[10px] font-mono font-bold border border-rose-500/30 transition cursor-pointer"
+              >
+                Reject
+              </button>
+            )}
+            {onApprove && (
+              <button
+                onClick={() => onApprove('Approved by dashboard operator')}
+                className="px-2 py-0.5 rounded bg-emerald-950/60 hover:bg-emerald-600 text-emerald-300 hover:text-white text-[10px] font-mono font-bold border border-emerald-500/30 transition cursor-pointer"
+              >
+                Approve
+              </button>
+            )}
+            {onReviewApproval && (
+              <button
+                onClick={onReviewApproval}
+                className="px-2 py-0.5 rounded bg-amber-600/40 hover:bg-amber-600 text-amber-200 hover:text-white text-[10px] font-mono font-bold transition cursor-pointer"
+              >
+                Sign Off
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

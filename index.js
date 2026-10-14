@@ -41,8 +41,8 @@ import { prewarmModel, getLoadedModels } from './src/agents/ollama.js';
 import { ActivityTracker, createSystemSampler } from './src/agents/activity.js';
 import { createInstrumentation } from './src/agents/instrumented.js';
 import { createRemoteExecutor } from './src/mesh/remote-executor.js';
-
-import { registerNode } from './src/mesh/workflow-service.js';
+import { MeshCoordinator } from './src/agents/coordinator.js';
+import { registerNode, executeApprovedTask } from './src/mesh/workflow-service.js';
 
 // Infrastructure
 import { startWebSocketServer, broadcastToClients } from './src/websocket/server.js';
@@ -168,24 +168,25 @@ async function main() {
       const nodeName = (info.name && info.name !== 'unknown') ? info.name : (info.nodeName && info.nodeName !== 'unknown' ? info.nodeName : null);
       if (nodeName) {
         try {
+          const assignedRole = (nodeName === 'delta' ? 'planner' : (nodeName === 'alpha' ? 'executor' : (info.role || 'peer')));
           registerNode(db, {
             id: `node-${nodeName}`,
             name: nodeName,
-            role: info.role || 'executor',
+            role: assignedRole,
             peer_id: info.peerId,
             status: (info.status === 'connected' || !info.status) ? 'active' : info.status,
             address: info.addrs?.[0] || 'remote',
             software_version: '2.0.0'
           }, {
             models: info.model || 'qwen2.5-coder:1.5b',
-            tools: 'executeMutation, verifyExecution',
+            tools: assignedRole === 'planner' ? 'planOperations, schemaIntrospect' : 'executeMutation, verifyExecution',
             max_concurrency: 4,
-            supported_task_types: 'execution, validation'
+            supported_task_types: assignedRole === 'planner' ? 'planning, reasoning' : 'execution, validation'
           });
           if (wss) {
             broadcastToClients(wss, {
               type: 'node:updated',
-              data: { name: nodeName, role: info.role || 'executor' }
+              data: { name: nodeName, role: assignedRole }
             });
           }
         } catch (err) {
@@ -266,6 +267,20 @@ async function main() {
       activity,
       planOperations: (prompt, database) => planOperations(prompt, database || db),
       preferredPeer: config.EXECUTOR_PEER || 'alpha'
+    });
+
+    // ── Step 6b: Setup Mesh Agent Coordinator (Router / Planner / Executor) ───
+    const coordinator = new MeshCoordinator({
+      node,
+      peerRegistry,
+      db,
+      syncEngine,
+      planOperations: (prompt, database) => planOperations(prompt, database || db),
+      executeOperations: (ops, database, engine, broadcastFn) => executeOperations(ops, database || db, engine || syncEngine, broadcastFn || broadcastTx),
+      executeApprovedTask: (database, taskId, opts) => executeApprovedTask(database || db, taskId, { ...opts, syncEngine, broadcastTx }),
+      broadcastTx,
+      broadcastWs: (type, data) => emitToDashboard(type, data),
+      nodeRole: config.NODE_ROLE
     });
 
     // ── Step 7: Setup Presence (announces role="planner", model, wsPort, perf)
@@ -398,52 +413,33 @@ async function main() {
 
       // Handle PLAN_REQUEST — received from executor nodes (e.g. alpha)
       onPlanRequest: async (envelope, fromPeer) => {
-        const payload = envelope.payload || {};
-        // Only answer requests whose targetPeerId is delta (or missing)
-        if (payload.targetPeerId && payload.targetPeerId !== peerId) {
-          logger.debug(`[Planner] Ignoring PLAN_REQUEST intended for ${payload.targetPeerId}`);
-          return;
-        }
+        await coordinator.handlePlanRequest(envelope, fromPeer);
+      },
 
-        const requester = payload.fromPeerId || payload.requesterPeerId || envelope.sender || fromPeer;
-        const requesterName = payload.nodeName || peerRegistry.getPeers().find(p => p.peerId === requester)?.name || 'alpha';
-        const requestId = payload.requestId || envelope.id;
-        const prompt = payload.prompt;
-
-        if (!requestId || !prompt) {
-          logger.warn(`[Planner] Dropped malformed PLAN_REQUEST from ${fromPeer.slice(0, 12)}...`);
-          return;
-        }
-
-        logger.ai(`[Planner] Serving PLAN_REQUEST [reqId:${requestId}] from ${requesterName}: "${prompt}"`);
-
-        await track.planService(async (reqPrompt) => {
-          return planOperations(reqPrompt, db);
-        })({
-          prompt,
-          fromName: requesterName,
-          respondFn: async (planResult) => {
-            const responsePayload = {
-              requestId,
-              success: planResult.success,
-              operations: planResult.operations || [],
-              error: planResult.error || null,
-              plannerPeerId: peerId,
-              targetPeerId: requester,
-              raw: planResult.raw || null
-            };
-            const respEnvelope = createEnvelope('PLAN_RESPONSE', responsePayload, peerId);
-            await publishControl(node, respEnvelope);
-          }
-        });
+      onPlanResponse: (envelope, fromPeer) => {
+        coordinator.handlePlanResponse(envelope, fromPeer);
       },
 
       onExecutionResponse: (envelope, fromPeer) => {
+        coordinator.handleExecutionResponse(envelope, fromPeer);
         remoteExecutor.handle('EXECUTION_RESULT', fromPeer, envelope);
       },
 
-      onExecutionRequest: (envelope, fromPeer) => {
-        logger.warn(`[Planner] Ignoring EXECUTION_REQUEST from ${fromPeer.slice(0, 12)}... (this node has role=planner, not executor)`);
+      onExecutionRequest: async (envelope, fromPeer) => {
+        await coordinator.handleExecutionRequest(envelope, fromPeer);
+      },
+
+      onApproval: async (envelope, fromPeer) => {
+        await coordinator.handleApproval(envelope, fromPeer);
+      },
+
+      onApprovalResult: (envelope, fromPeer) => {
+        coordinator.handleApproval(envelope, fromPeer);
+      },
+
+      onExecutionResult: (envelope, fromPeer) => {
+        coordinator.handleExecutionResponse(envelope, fromPeer);
+        remoteExecutor.handle('EXECUTION_RESULT', fromPeer, envelope);
       }
     });
 
@@ -564,6 +560,7 @@ async function main() {
       node,
       db,
       peerRegistry,
+      coordinator,
       executeSingleTransaction: executeFastPath,
       planOperations: planLocal,
       executeOperations: nodeExecuteOperations,

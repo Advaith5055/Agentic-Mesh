@@ -82,8 +82,6 @@ export default function ExecutorMeshDashboard() {
   const [newTaskType, setNewTaskType] = useState('general');
   const [newTaskPriority, setNewTaskPriority] = useState('medium');
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
-  const [taskCreationError, setTaskCreationError] = useState(null);
-  const [apiKey, setApiKey] = useState('mesh-dev-key');
 
   // Approval Action Modal State
   const [activeApproval, setActiveApproval] = useState(null);
@@ -140,12 +138,6 @@ export default function ExecutorMeshDashboard() {
     return `http://${host}:${wsPort}/api${endpoint}`;
   }, [wsPort]);
 
-  const getApiHeaders = useCallback((extra = {}) => ({
-    'Content-Type': 'application/json',
-    'x-api-key': apiKey || 'mesh-dev-key',
-    ...extra
-  }), [apiKey]);
-
   const addLog = useCallback((text, type = 'system') => {
     setLogs(prev => [...prev.slice(-200), { time: new Date().toLocaleTimeString(), text, type }]);
   }, []);
@@ -183,15 +175,14 @@ export default function ExecutorMeshDashboard() {
   // ───────────────────────────────────────────────────────────────────────────
   const fetchWorkflowData = useCallback(async () => {
     try {
-      const hdrs = { 'x-api-key': apiKey || 'mesh-dev-key' };
       const [tRes, nRes, aRes, cRes, rRes, mRes, audRes] = await Promise.all([
-        fetch(getApiUrl('/tasks'), { headers: hdrs }).catch(() => null),
-        fetch(getApiUrl('/nodes'), { headers: hdrs }).catch(() => null),
-        fetch(getApiUrl('/approvals'), { headers: hdrs }).catch(() => null),
-        fetch(getApiUrl('/conflicts'), { headers: hdrs }).catch(() => null),
-        fetch(getApiUrl('/replication/metrics'), { headers: hdrs }).catch(() => null),
-        fetch(getApiUrl('/metrics/operational'), { headers: hdrs }).catch(() => null),
-        fetch(getApiUrl('/audit-events?limit=30'), { headers: hdrs }).catch(() => null)
+        fetch(getApiUrl('/tasks')).catch(() => null),
+        fetch(getApiUrl('/nodes')).catch(() => null),
+        fetch(getApiUrl('/approvals')).catch(() => null),
+        fetch(getApiUrl('/conflicts')).catch(() => null),
+        fetch(getApiUrl('/replication/metrics')).catch(() => null),
+        fetch(getApiUrl('/metrics/operational')).catch(() => null),
+        fetch(getApiUrl('/audit-events?limit=30')).catch(() => null)
       ]);
 
       if (tRes?.ok) setTasks(await tRes.json());
@@ -204,13 +195,13 @@ export default function ExecutorMeshDashboard() {
     } catch (err) {
       addLog(`Failed to fetch workflow data: ${err.message}`, 'error');
     }
-  }, [getApiUrl, apiKey, addLog]);
+  }, [getApiUrl, addLog]);
 
   const fetchTaskDetails = useCallback(async (taskId) => {
     if (!taskId) return;
     setIsLoadingDetails(true);
     try {
-      const res = await fetch(getApiUrl(`/tasks/${taskId}`), { headers: { 'x-api-key': apiKey || 'mesh-dev-key' } });
+      const res = await fetch(getApiUrl(`/tasks/${taskId}`));
       if (res.ok) {
         const details = await res.json();
         setSelectedTaskDetails(details);
@@ -220,28 +211,28 @@ export default function ExecutorMeshDashboard() {
     } finally {
       setIsLoadingDetails(false);
     }
-  }, [getApiUrl, apiKey, addLog]);
+  }, [getApiUrl, addLog]);
 
   const fetchDbState = useCallback(async () => {
     try {
-      const res = await fetch(getApiUrl('/db/state'), { headers: { 'x-api-key': apiKey || 'mesh-dev-key' } });
+      const res = await fetch(getApiUrl('/db/state'));
       if (res.ok) setDbState(await res.json());
-    } catch { }
-  }, [getApiUrl, apiKey]);
+    } catch {}
+  }, [getApiUrl]);
 
   const fetchPeers = useCallback(async () => {
     try {
-      const res = await fetch(getApiUrl('/peers'), { headers: { 'x-api-key': apiKey || 'mesh-dev-key' } });
+      const res = await fetch(getApiUrl('/peers'));
       if (res.ok) setPeers(await res.json());
-    } catch { }
-  }, [getApiUrl, apiKey]);
+    } catch {}
+  }, [getApiUrl]);
 
   const fetchMeshLogs = useCallback(async () => {
     try {
-      const res = await fetch(getApiUrl('/db/mesh-log'), { headers: { 'x-api-key': apiKey || 'mesh-dev-key' } });
+      const res = await fetch(getApiUrl('/db/mesh-log'));
       if (res.ok) setMeshLogs(await res.json());
-    } catch { }
-  }, [getApiUrl, apiKey]);
+    } catch {}
+  }, [getApiUrl]);
 
   const refreshAll = useCallback(() => {
     addLog('Refreshing all platform telemetry...', 'system');
@@ -255,7 +246,6 @@ export default function ExecutorMeshDashboard() {
   const handleWsMessage = useCallback((msg) => {
     switch (msg.type) {
       case 'init':
-        if (msg.apiKey) setApiKey(msg.apiKey);
         setPeers(msg.peers || []);
         if (msg.dbState) setDbState(msg.dbState);
         if (msg.meshLogs) setMeshLogs(msg.meshLogs);
@@ -384,11 +374,10 @@ export default function ExecutorMeshDashboard() {
     if (!newTaskTitle.trim() || !newTaskPrompt.trim()) return;
 
     setIsSubmittingTask(true);
-    setTaskCreationError(null);
     try {
       const res = await fetch(getApiUrl('/tasks'), {
         method: 'POST',
-        headers: getApiHeaders(),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: newTaskTitle.trim(),
           user_prompt: newTaskPrompt.trim(),
@@ -400,24 +389,18 @@ export default function ExecutorMeshDashboard() {
 
       if (res.ok) {
         const data = await res.json();
-        addLog(`Created task: ${data.task?.title || newTaskTitle.trim()}`, 'success');
+        addLog(`Created task: ${data.task.title}`, 'success');
         setNewTaskTitle('');
         setNewTaskPrompt('');
-        setTaskCreationError(null);
         setIsCreateTaskOpen(false);
         fetchWorkflowData();
-        if (data.task?.id) {
-          setSelectedTaskId(data.task.id);
-          fetchTaskDetails(data.task.id);
-        }
+        setSelectedTaskId(data.task.id);
+        fetchTaskDetails(data.task.id);
       } else {
-        const errData = await res.json().catch(() => ({}));
-        const errMsg = errData.error || errData.errors?.join(', ') || 'Failed to submit task to queue';
-        setTaskCreationError(errMsg);
-        addLog(`Failed to create task: ${errMsg}`, 'error');
+        const errData = await res.json();
+        addLog(`Failed to create task: ${errData.errors?.join(', ')}`, 'error');
       }
     } catch (err) {
-      setTaskCreationError(err.message);
       addLog(`Error creating task: ${err.message}`, 'error');
     } finally {
       setIsSubmittingTask(false);
@@ -429,7 +412,7 @@ export default function ExecutorMeshDashboard() {
       addLog(`Requesting planner node to decompose task ${taskId}...`, 'ai');
       const res = await fetch(getApiUrl(`/tasks/${taskId}/plan`), {
         method: 'POST',
-        headers: getApiHeaders(),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plannerNodeId: nodeInfo.name })
       });
       if (res.ok) {
@@ -437,8 +420,8 @@ export default function ExecutorMeshDashboard() {
         fetchWorkflowData();
         fetchTaskDetails(taskId);
       } else {
-        const err = await res.json().catch(() => ({}));
-        addLog(`Planning failed: ${err.error || err.errors?.join(', ') || 'Failed'}`, 'error');
+        const err = await res.json();
+        addLog(`Planning failed: ${err.errors?.join(', ')}`, 'error');
       }
     } catch (err) {
       addLog(`Error planning task: ${err.message}`, 'error');
@@ -447,27 +430,11 @@ export default function ExecutorMeshDashboard() {
 
   const handleExecuteTask = async (taskId) => {
     try {
-      const executorPeer = peers.find(p => (p.role === 'executor' || p.role === 'peer') && p.wsPort);
-      let targetUrl = getApiUrl(`/tasks/${taskId}/execute`);
-
-      if (nodeInfo.nodeRole === 'planner') {
-        if (executorPeer?.wsPort) {
-          const host = window.location.hostname || 'localhost';
-          targetUrl = `http://${host}:${executorPeer.wsPort}/api/tasks/${taskId}/execute`;
-          addLog(`Routing task execution to connected executor "${executorPeer.name || 'alpha'}" (port :${executorPeer.wsPort})...`, 'db');
-        } else {
-          addLog(`Planner node delta cannot directly execute tasks. Connect an executor node or switch gateway to :3002.`, 'warn');
-        }
-      } else {
-        addLog(`Executor node initiating atomic execution for task ${taskId}...`, 'db');
-      }
-
-      const res = await fetch(targetUrl, {
+      addLog(`Executor node initiating atomic execution for task ${taskId}...`, 'db');
+      const res = await fetch(getApiUrl(`/tasks/${taskId}/execute`), {
         method: 'POST',
-        headers: getApiHeaders(),
-        body: JSON.stringify({
-          executorNodeId: executorPeer?.name ? `node-${executorPeer.name}` : undefined
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ executorNodeId: nodeInfo.name || 'executor-1' })
       });
       if (res.ok) {
         const outcome = await res.json();
@@ -479,8 +446,8 @@ export default function ExecutorMeshDashboard() {
         fetchWorkflowData();
         fetchTaskDetails(taskId);
       } else {
-        const err = await res.json().catch(() => ({}));
-        addLog(`Execution rejected: ${err.error || err.errors?.join(', ') || 'Forbidden'}`, 'error');
+        const err = await res.json();
+        addLog(`Execution rejected: ${err.errors?.join(', ')}`, 'error');
       }
     } catch (err) {
       addLog(`Error executing task: ${err.message}`, 'error');
@@ -493,7 +460,7 @@ export default function ExecutorMeshDashboard() {
     try {
       const res = await fetch(getApiUrl(`/approvals/${activeApproval.id}/decide`), {
         method: 'POST',
-        headers: getApiHeaders(),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           decision,
           reviewer: 'operator:dashboard',
@@ -507,8 +474,8 @@ export default function ExecutorMeshDashboard() {
         fetchWorkflowData();
         if (selectedTaskId) fetchTaskDetails(selectedTaskId);
       } else {
-        const err = await res.json().catch(() => ({}));
-        addLog(`Approval submission failed: ${err.error || err.errors?.join(', ')}`, 'error');
+        const err = await res.json();
+        addLog(`Approval submission failed: ${err.errors?.join(', ')}`, 'error');
       }
     } catch (err) {
       addLog(`Error submitting approval: ${err.message}`, 'error');
@@ -523,7 +490,7 @@ export default function ExecutorMeshDashboard() {
     try {
       const res = await fetch(getApiUrl(`/conflicts/${activeConflict.id}/resolve`), {
         method: 'POST',
-        headers: getApiHeaders(),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chosen_resolution: chosenResolutionText.trim(),
           resolved_by: 'operator:dashboard'
@@ -535,8 +502,8 @@ export default function ExecutorMeshDashboard() {
         setChosenResolutionText('');
         fetchWorkflowData();
       } else {
-        const err = await res.json().catch(() => ({}));
-        addLog(`Conflict resolution failed: ${err.error || err.errors?.join(', ')}`, 'error');
+        const err = await res.json();
+        addLog(`Conflict resolution failed: ${err.errors?.join(', ')}`, 'error');
       }
     } catch (err) {
       addLog(`Error resolving conflict: ${err.message}`, 'error');
@@ -549,7 +516,7 @@ export default function ExecutorMeshDashboard() {
   const triggerSyncWithMesh = async () => {
     setIsSyncing(true);
     try {
-      const res = await fetch(getApiUrl('/sync'), { method: 'POST', headers: getApiHeaders() });
+      const res = await fetch(getApiUrl('/sync'), { method: 'POST' });
       if (res.ok) {
         addLog('Broadcasted SYNC_REQUEST to all mesh nodes', 'p2p');
       }
@@ -571,16 +538,16 @@ export default function ExecutorMeshDashboard() {
       };
       const res = await fetch(getApiUrl('/propose'), {
         method: 'POST',
-        headers: getApiHeaders(),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ table: 'items', operation: 'INSERT', data: sampleItem })
       });
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json();
       if (data.success) {
         addLog(`Demo mutation committed: ${sampleItem.name} (${sampleItem.sku})`, 'db');
         fetchDbState();
         fetchMeshLogs();
       } else {
-        addLog(`Demo mutation rejected: ${data.errors?.join(', ') || data.error}`, 'error');
+        addLog(`Demo mutation rejected: ${data.errors?.join(', ')}`, 'error');
       }
     } catch (err) {
       addLog(`Demo proposal error: ${err.message}`, 'error');
@@ -597,10 +564,10 @@ export default function ExecutorMeshDashboard() {
       };
       const res = await fetch(getApiUrl('/propose'), {
         method: 'POST',
-        headers: getApiHeaders(),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(badPayload)
       });
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json();
       if (!data.success) {
         addLog(`Schema Rule Intercepted: ${data.errors?.join(', ')}`, 'warn');
       }
@@ -638,7 +605,7 @@ export default function ExecutorMeshDashboard() {
     const gLinks = [];
 
     nodes.forEach(n => {
-      if (n.name && n.name !== 'unknown' && n.name !== localId && !gNodes.some(x => x.id === n.name)) {
+      if (n.name !== localId && !gNodes.some(x => x.id === n.name)) {
         gNodes.push({
           id: n.name,
           val: 18,
@@ -651,26 +618,14 @@ export default function ExecutorMeshDashboard() {
       }
     });
 
-    peers.forEach((p) => {
-      // Don't add self if present in peer list
-      if (p.peerId && p.peerId === nodeInfo.peerId) return;
-      if (p.peerId && gNodes.some(x => x.peerId === p.peerId)) return;
-
-      const candidateName = (p.name && p.name !== 'unknown') ? p.name : (p.nodeName && p.nodeName !== 'unknown' ? p.nodeName : null);
-      const matchedNode = candidateName
-        ? nodes.find(n => n.name === candidateName)
-        : (p.peerId ? nodes.find(n => n.peer_id === p.peerId) : null);
-
-      const pName = matchedNode ? matchedNode.name : candidateName;
-      // Do not render an unknown or unnamed node
-      if (!pName || pName === 'unknown') return;
-
-      if (!gNodes.some(x => x.id === pName || (p.peerId && x.peerId === p.peerId))) {
+    peers.forEach((p, idx) => {
+      const pName = p.name || `Peer-${idx + 1}`;
+      if (!gNodes.some(x => x.id === pName)) {
         gNodes.push({
           id: pName,
-          val: 18,
+          val: 14,
           group: 3,
-          role: p.role || matchedNode?.role || 'executor',
+          role: p.role || 'peer',
           status: 'connected',
           peerId: p.peerId
         });
@@ -729,10 +684,11 @@ export default function ExecutorMeshDashboard() {
             <button
               key={port}
               onClick={() => setWsPort(port)}
-              className={`px-2.5 py-1 rounded-lg font-mono text-xs font-semibold transition cursor-pointer ${wsPort === port
+              className={`px-2.5 py-1 rounded-lg font-mono text-xs font-semibold transition cursor-pointer ${
+                wsPort === port
                   ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-slate-900'
-                }`}
+              }`}
             >
               :{port}
             </button>
@@ -771,10 +727,11 @@ export default function ExecutorMeshDashboard() {
             <span className="hidden sm:inline">Sync</span>
           </button>
 
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold ${nodeInfo.wsStatus === 'CONNECTED'
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold ${
+            nodeInfo.wsStatus === 'CONNECTED'
               ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400'
               : 'bg-rose-950/40 border-rose-500/30 text-rose-400 animate-pulse'
-            }`}>
+          }`}>
             <Radio size={12} className={nodeInfo.wsStatus === 'CONNECTED' ? 'animate-ping' : ''} />
             <span>{nodeInfo.wsStatus}</span>
           </div>
@@ -851,8 +808,9 @@ export default function ExecutorMeshDashboard() {
 
         {/* Metric 5: Failed Validations & Risk */}
         <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-900/80 border border-slate-800/90 shadow-sm col-span-2 sm:col-span-1">
-          <div className={`p-2 rounded-lg ${operationalMetrics.failedValidationsCount > 0 ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'
-            }`}>
+          <div className={`p-2 rounded-lg ${
+            operationalMetrics.failedValidationsCount > 0 ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'
+          }`}>
             <ShieldCheck size={18} />
           </div>
           <div>
@@ -874,10 +832,11 @@ export default function ExecutorMeshDashboard() {
 
           <button
             onClick={() => setActiveTab('board')}
-            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${activeTab === 'board'
+            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'board'
                 ? 'bg-cyan-600/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-              }`}
+            }`}
           >
             <Workflow size={14} />
             <span>Task Board</span>
@@ -888,10 +847,11 @@ export default function ExecutorMeshDashboard() {
 
           <button
             onClick={() => setActiveTab('topology')}
-            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${activeTab === 'topology'
+            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'topology'
                 ? 'bg-cyan-600/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-              }`}
+            }`}
           >
             <Network size={14} />
             <span>Live Mesh Topology</span>
@@ -902,10 +862,11 @@ export default function ExecutorMeshDashboard() {
 
           <button
             onClick={() => setActiveTab('replication')}
-            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${activeTab === 'replication'
+            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'replication'
                 ? 'bg-cyan-600/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-              }`}
+            }`}
           >
             <ArrowRightLeft size={14} />
             <span>Replication & Conflicts</span>
@@ -918,10 +879,11 @@ export default function ExecutorMeshDashboard() {
 
           <button
             onClick={() => setActiveTab('audit')}
-            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${activeTab === 'audit'
+            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'audit'
                 ? 'bg-cyan-600/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-              }`}
+            }`}
           >
             <ShieldCheck size={14} />
             <span>Audit History</span>
@@ -929,10 +891,11 @@ export default function ExecutorMeshDashboard() {
 
           <button
             onClick={() => setActiveTab('chat')}
-            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${activeTab === 'chat'
+            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'chat'
                 ? 'bg-violet-600/20 text-violet-300 border border-violet-500/40 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-              }`}
+            }`}
           >
             <MessageSquare size={14} />
             <span>Agent Assistant</span>
@@ -940,10 +903,11 @@ export default function ExecutorMeshDashboard() {
 
           <button
             onClick={() => setActiveTab('activity')}
-            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${activeTab === 'activity'
+            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'activity'
                 ? 'bg-sky-600/20 text-sky-300 border border-sky-500/40 shadow-sm'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-              }`}
+            }`}
           >
             <Gauge size={14} />
             <span>System Telemetry</span>
@@ -954,10 +918,11 @@ export default function ExecutorMeshDashboard() {
 
           <button
             onClick={() => setActiveTab('inventory')}
-            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${activeTab === 'inventory'
+            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'inventory'
                 ? 'bg-amber-600/20 text-amber-300 border border-amber-500/40 shadow-sm'
                 : 'text-slate-400 hover:text-amber-200 hover:bg-slate-800/50'
-              }`}
+            }`}
           >
             <Boxes size={14} className="text-amber-400" />
             <span className="text-amber-300">Demo Inventory (Legacy)</span>
@@ -1312,8 +1277,9 @@ export default function ExecutorMeshDashboard() {
                     <div key={c.id} className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-amber-300 font-mono text-[11px]">{c.conflict_type}</span>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${c.resolution_state === 'resolved' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'
-                          }`}>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                          c.resolution_state === 'resolved' ? 'bg-emerald-950 text-emerald-400' : 'bg-rose-950 text-rose-400'
+                        }`}>
                           {c.resolution_state}
                         </span>
                       </div>
@@ -1402,8 +1368,9 @@ export default function ExecutorMeshDashboard() {
                       <Bot size={14} />
                     </div>
                   )}
-                  <div className={`p-3 rounded-2xl max-w-xl ${msg.sender === 'user' ? 'bg-cyan-600 text-white rounded-tr-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'
-                    }`}>
+                  <div className={`p-3 rounded-2xl max-w-xl ${
+                    msg.sender === 'user' ? 'bg-cyan-600 text-white rounded-tr-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'
+                  }`}>
                     <div>{msg.text}</div>
                     <div className="text-[10px] text-slate-400 mt-1.5 text-right font-mono">{msg.timestamp}</div>
                   </div>
@@ -1427,7 +1394,7 @@ export default function ExecutorMeshDashboard() {
                 setIsChatLoading(true);
                 fetch(getApiUrl('/agent/chat'), {
                   method: 'POST',
-                  headers: getApiHeaders(),
+                  headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ message: txt, history: [] })
                 })
                   .then(r => r.json())
@@ -1616,9 +1583,9 @@ export default function ExecutorMeshDashboard() {
                       <span className="text-slate-500 text-[10px] shrink-0">{l.time}</span>
                       <span className={
                         l.type === 'ai' ? 'text-cyan-400' :
-                          l.type === 'p2p' ? 'text-purple-400' :
-                            l.type === 'warn' ? 'text-amber-400' :
-                              l.type === 'success' ? 'text-emerald-400' : 'text-slate-300'
+                        l.type === 'p2p' ? 'text-purple-400' :
+                        l.type === 'warn' ? 'text-amber-400' :
+                        l.type === 'success' ? 'text-emerald-400' : 'text-slate-300'
                       }>{l.text}</span>
                     </div>
                   ))}
@@ -1641,11 +1608,12 @@ export default function ExecutorMeshDashboard() {
             {/* Drawer Header */}
             <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
               <div className="flex items-center gap-2">
-                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${selectedTaskDetails?.status === 'completed' ? 'bg-emerald-950 text-emerald-400' :
-                    selectedTaskDetails?.status === 'executing' ? 'bg-purple-950 text-purple-400' :
-                      selectedTaskDetails?.status === 'awaiting_approval' ? 'bg-amber-950 text-amber-400' :
-                        'bg-cyan-950 text-cyan-400'
-                  }`}>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                  selectedTaskDetails?.status === 'completed' ? 'bg-emerald-950 text-emerald-400' :
+                  selectedTaskDetails?.status === 'executing' ? 'bg-purple-950 text-purple-400' :
+                  selectedTaskDetails?.status === 'awaiting_approval' ? 'bg-amber-950 text-amber-400' :
+                  'bg-cyan-950 text-cyan-400'
+                }`}>
                   {selectedTaskDetails?.status || 'loading'}
                 </span>
                 <span className="font-mono text-xs text-slate-400">{selectedTaskId}</span>
@@ -1723,8 +1691,9 @@ export default function ExecutorMeshDashboard() {
                         <div key={step.id || idx} className="p-3 rounded-xl bg-slate-950 border border-slate-800/90 font-mono space-y-1.5">
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-slate-200">Step {step.step_number}: {step.title}</span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase ${step.status === 'completed' ? 'bg-emerald-950 text-emerald-400' : 'bg-slate-800 text-slate-400'
-                              }`}>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase ${
+                              step.status === 'completed' ? 'bg-emerald-950 text-emerald-400' : 'bg-slate-800 text-slate-400'
+                            }`}>
                               {step.status}
                             </span>
                           </div>
@@ -1812,11 +1781,6 @@ export default function ExecutorMeshDashboard() {
             </div>
 
             <form onSubmit={handleCreateTask} className="space-y-3.5 text-xs">
-              {taskCreationError && (
-                <div className="p-3 rounded-xl bg-rose-950/80 border border-rose-800 text-rose-300 font-mono text-[11px] leading-relaxed">
-                  {taskCreationError}
-                </div>
-              )}
               <div>
                 <label className="block text-slate-400 font-mono mb-1">Task Title</label>
                 <input

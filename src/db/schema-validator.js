@@ -90,14 +90,21 @@ export const SCHEMA_RULES = {
       status: 'string',
       requested_by: 'string',
       assigned_node_id: 'string',
+      planner_peer_id: 'string',
+      planner_request_id: 'string',
+      plan: 'string',
+      operations: 'string',
+      approval_id: 'string',
+      execution_result: 'string',
+      error: 'string',
       created_at: 'string',
       updated_at: 'string'
     },
     checks: [
       {
         field: 'status',
-        check: v => ['queued', 'planned', 'awaiting_approval', 'executing', 'completed', 'failed', 'cancelled'].includes(v),
-        message: 'status must be one of: queued, planned, awaiting_approval, executing, completed, failed, cancelled'
+        check: v => ['queued', 'planning', 'planned', 'awaiting_approval', 'approved', 'rejected', 'executing', 'completed', 'failed', 'cancelled'].includes(v),
+        message: 'status must be one of: queued, planning, planned, awaiting_approval, approved, rejected, executing, completed, failed, cancelled'
       }
     ],
     foreignKeys: [
@@ -181,6 +188,8 @@ export const SCHEMA_RULES = {
       decision: 'string',
       decision_time: 'string',
       reason: 'string',
+      operations: 'string',
+      planner_peer_id: 'string',
       created_at: 'string'
     },
     checks: [
@@ -252,6 +261,27 @@ export const SCHEMA_RULES = {
     ],
     foreignKeys: [],
     uniques: []
+  },
+
+  task_messages: {
+    required: ['message_id', 'task_id', 'sender_node', 'sender_role', 'receiver_node', 'receiver_role', 'message_type', 'summary'],
+    types: {
+      message_id: 'string',
+      task_id: 'string',
+      sender_node: 'string',
+      sender_role: 'string',
+      receiver_node: 'string',
+      receiver_role: 'string',
+      message_type: 'string',
+      summary: 'string',
+      payload_metadata: 'string',
+      status: 'string',
+      request_id: 'string',
+      timestamp: 'string'
+    },
+    checks: [],
+    foreignKeys: [{ field: 'task_id', refTable: 'tasks', refField: 'id' }],
+    uniques: []
   }
 };
 
@@ -277,7 +307,8 @@ export const ALLOWED_TABLES = new Set([
   'approvals',
   'audit_events',
   'conflicts',
-  'replication_metrics'
+  'replication_metrics',
+  'task_messages'
 ]);
 
 export const ALLOWED_COLUMNS = {
@@ -290,14 +321,15 @@ export const ALLOWED_COLUMNS = {
   // Workflow platform
   mesh_nodes: new Set(['id', 'name', 'role', 'peer_id', 'status', 'address', 'software_version', 'last_seen_at']),
   node_capabilities: new Set(['id', 'node_id', 'models', 'tools', 'max_concurrency', 'supported_task_types', 'resource_details', 'updated_at']),
-  tasks: new Set(['id', 'title', 'user_prompt', 'task_type', 'priority', 'status', 'requested_by', 'assigned_node_id', 'created_at', 'updated_at']),
+  tasks: new Set(['id', 'title', 'user_prompt', 'task_type', 'priority', 'status', 'requested_by', 'assigned_node_id', 'planner_peer_id', 'planner_request_id', 'plan', 'operations', 'approval_id', 'execution_result', 'error', 'created_at', 'updated_at']),
   task_runs: new Set(['id', 'task_id', 'planner_node', 'executor_node', 'validator_node', 'state', 'start_time', 'end_time', 'error_summary', 'execution_metrics']),
   task_steps: new Set(['id', 'task_id', 'run_id', 'step_number', 'title', 'status', 'input_json', 'output_json', 'started_at', 'completed_at']),
   artifacts: new Set(['id', 'task_id', 'run_id', 'name', 'artifact_type', 'content', 'metadata_json', 'created_at']),
-  approvals: new Set(['id', 'task_id', 'run_id', 'request_description', 'risk_level', 'reviewer', 'decision', 'decision_time', 'reason', 'created_at']),
+  approvals: new Set(['id', 'task_id', 'run_id', 'request_description', 'risk_level', 'reviewer', 'decision', 'decision_time', 'reason', 'operations', 'planner_peer_id', 'created_at']),
   audit_events: new Set(['id', 'entity_type', 'entity_id', 'action', 'actor', 'details_json', 'timestamp']),
   conflicts: new Set(['id', 'conflict_type', 'affected_entity_type', 'affected_entity_id', 'peer_id', 'details_json', 'resolution_state', 'chosen_resolution', 'resolved_at', 'created_at']),
-  replication_metrics: new Set(['id', 'source_peer_id', 'target_peer_id', 'latency_ms', 'status', 'vector_clock_meta', 'bytes_transferred', 'timestamp'])
+  replication_metrics: new Set(['id', 'source_peer_id', 'target_peer_id', 'latency_ms', 'status', 'vector_clock_meta', 'bytes_transferred', 'timestamp']),
+  task_messages: new Set(['message_id', 'task_id', 'sender_node', 'sender_role', 'receiver_node', 'receiver_role', 'message_type', 'summary', 'payload_metadata', 'status', 'request_id', 'timestamp'])
 };
 
 /**

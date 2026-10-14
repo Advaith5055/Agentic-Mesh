@@ -121,7 +121,8 @@ export const config = {
   PROPOSAL_TTL_MS:         parseInt(process.env.PROPOSAL_TTL_MS || '600000', 10),
 
   // Planner ↔ Executor handoff configuration
-  EXECUTOR_PEER:           process.env.EXECUTOR_PEER           || 'alpha',
+  PLANNER_PEER:            process.env.PLANNER_PEER            || 'alpha',
+  EXECUTOR_PEER:           process.env.EXECUTOR_PEER           || 'delta',
   BOOTSTRAP_PEERS:         (process.env.BOOTSTRAP_PEERS || '').split(',').map(s => s.trim()).filter(Boolean),
 
   // Security & Authentication configuration

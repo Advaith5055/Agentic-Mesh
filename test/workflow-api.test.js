@@ -104,24 +104,37 @@ describe('Workflow Platform REST API Contracts', () => {
     const planRes = await fetch(`${baseUrl}/api/tasks/${taskId}/plan`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': 'mesh-dev-key' },
-      body: JSON.stringify({ plannerNodeId: 'node-delta', riskLevel: 'low' })
+      body: JSON.stringify({ plannerNodeId: 'node-alpha', riskLevel: 'low' })
     });
 
     assert.equal(planRes.status, 200);
     const planData = await planRes.json();
     assert.equal(planData.task.status, 'planned');
 
-    // 3. Execute task
-    const execRes = await fetch(`${baseUrl}/api/tasks/${taskId}/execute`, {
+    // 3. Dispatch task to Executor (moves to awaiting_approval and generates approval)
+    const dispatchRes = await fetch(`${baseUrl}/api/tasks/${taskId}/dispatch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': 'mesh-dev-key' },
-      body: JSON.stringify({ executorNodeId: 'node-alpha' })
+      body: JSON.stringify({ executorNodeId: 'node-delta' })
     });
 
-    assert.equal(execRes.status, 200);
-    const execData = await execRes.json();
+    assert.equal(dispatchRes.status, 200);
+    const execData = await dispatchRes.json();
     assert.equal(execData.success, true);
-    assert.equal(execData.status, 'completed');
+    assert.equal(execData.status, 'awaiting_approval');
+    assert.ok(execData.approval?.id);
+
+    // 3b. Approve task execution (only approved tasks execute)
+    const decideRes = await fetch(`${baseUrl}/api/approvals/${execData.approval.id}/decide`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': 'mesh-dev-key' },
+      body: JSON.stringify({ decision: 'approved', reviewer: 'lead_architect' })
+    });
+
+    assert.equal(decideRes.status, 200);
+    const decideData = await decideRes.json();
+    assert.equal(decideData.success, true);
+    assert.equal(decideData.task.status, 'completed');
 
     // 4. Verify task details endpoint
     const detailsRes = await fetch(`${baseUrl}/api/tasks/${taskId}`);

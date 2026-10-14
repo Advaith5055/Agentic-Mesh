@@ -59,12 +59,12 @@ describe('Workflow Lifecycle, Role Separation & Approval Enforcement', () => {
       priority: 'low'
     });
 
-    const plannedTask = planTask(db, task.id, { plannerNodeId: 'node-delta', riskLevel: 'low' });
+    const plannedTask = planTask(db, task.id, { plannerNodeId: 'node-alpha', riskLevel: 'low' });
     assert.equal(plannedTask.status, TaskStatus.PLANNED);
 
     const runs = db.prepare('SELECT * FROM task_runs WHERE task_id = ?').all(task.id);
     assert.equal(runs.length, 1);
-    assert.equal(runs[0].planner_node, 'node-delta');
+    assert.equal(runs[0].planner_node, 'node-alpha');
 
     const steps = db.prepare('SELECT * FROM task_steps WHERE task_id = ?').all(task.id);
     assert.ok(steps.length >= 3, 'Planner must produce ordered steps');
@@ -81,7 +81,7 @@ describe('Workflow Lifecycle, Role Separation & Approval Enforcement', () => {
     });
 
     // Planning high-risk task moves it to awaiting_approval and creates approval record
-    const planned = planTask(db, task.id, { plannerNodeId: 'node-delta', riskLevel: 'high' });
+    const planned = planTask(db, task.id, { plannerNodeId: 'node-alpha', riskLevel: 'high' });
     assert.equal(planned.status, TaskStatus.AWAITING_APPROVAL);
 
     const approval = db.prepare('SELECT * FROM approvals WHERE task_id = ?').get(task.id);
@@ -91,7 +91,7 @@ describe('Workflow Lifecycle, Role Separation & Approval Enforcement', () => {
 
     // Attempting execution while approval is pending MUST be rejected
     assert.throws(() => {
-      executeTask(db, task.id, { executorNodeId: 'node-alpha', syncEngine });
+      executeTask(db, task.id, { executorNodeId: 'node-delta', syncEngine });
     }, /cannot execute: approval .* is pending review/i);
 
     // Verify rejection audit event was logged
@@ -106,11 +106,11 @@ describe('Workflow Lifecycle, Role Separation & Approval Enforcement', () => {
     });
     assert.equal(decided.decision, ApprovalDecision.APPROVED);
 
-    // Now task status is PLANNED and execution succeeds
+    // Now task status is APPROVED and execution succeeds
     const taskAfterApproval = db.prepare('SELECT * FROM tasks WHERE id = ?').get(task.id);
-    assert.equal(taskAfterApproval.status, TaskStatus.PLANNED);
+    assert.equal(taskAfterApproval.status, TaskStatus.APPROVED);
 
-    const execOutcome = executeTask(db, task.id, { executorNodeId: 'node-alpha', syncEngine });
+    const execOutcome = executeTask(db, task.id, { executorNodeId: 'node-delta', syncEngine });
     assert.equal(execOutcome.success, true);
     assert.equal(execOutcome.status, TaskStatus.COMPLETED);
   });
@@ -122,7 +122,7 @@ describe('Workflow Lifecycle, Role Separation & Approval Enforcement', () => {
       priority: 'critical'
     });
 
-    planTask(db, task.id, { plannerNodeId: 'node-delta', riskLevel: 'critical' });
+    planTask(db, task.id, { plannerNodeId: 'node-alpha', riskLevel: 'critical' });
     const approval = db.prepare('SELECT * FROM approvals WHERE task_id = ?').get(task.id);
 
     submitApprovalDecision(db, approval.id, {
@@ -132,7 +132,7 @@ describe('Workflow Lifecycle, Role Separation & Approval Enforcement', () => {
     });
 
     const taskAfter = db.prepare('SELECT * FROM tasks WHERE id = ?').get(task.id);
-    assert.equal(taskAfter.status, TaskStatus.FAILED);
+    assert.equal(taskAfter.status, TaskStatus.REJECTED);
   });
 
   it('atomically rolls back entire task execution if a mutation fails midway', () => {
@@ -142,7 +142,7 @@ describe('Workflow Lifecycle, Role Separation & Approval Enforcement', () => {
       priority: 'medium'
     });
 
-    planTask(db, task.id, { plannerNodeId: 'node-delta', riskLevel: 'low' });
+    planTask(db, task.id, { plannerNodeId: 'node-alpha', riskLevel: 'low' });
 
     const categoriesBefore = db.prepare('SELECT COUNT(*) as c FROM categories').get().c;
 
@@ -161,7 +161,7 @@ describe('Workflow Lifecycle, Role Separation & Approval Enforcement', () => {
     ];
 
     const outcome = executeTask(db, task.id, {
-      executorNodeId: 'node-alpha',
+      executorNodeId: 'node-delta',
       syncEngine,
       mutations: failingMutations
     });
@@ -182,8 +182,8 @@ describe('Workflow Lifecycle, Role Separation & Approval Enforcement', () => {
       priority: 'low'
     });
 
-    planTask(db, task.id, { plannerNodeId: 'node-delta', riskLevel: 'low' });
-    const execOutcome = executeTask(db, task.id, { executorNodeId: 'node-alpha', syncEngine });
+    planTask(db, task.id, { plannerNodeId: 'node-alpha', riskLevel: 'low' });
+    const execOutcome = executeTask(db, task.id, { executorNodeId: 'node-delta', syncEngine });
     assert.equal(execOutcome.success, true);
 
     const validationResult = validateTaskRun(db, execOutcome.runId, 'node-gamma');

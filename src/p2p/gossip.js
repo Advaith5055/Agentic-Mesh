@@ -123,7 +123,23 @@ export function setupGossip(node, handlers) {
               handlers.onExecutionRequest(decoded, fromPeer);
             }
             break;
-          case 'EXECUTION_RESULT':
+          case MessageType.APPROVAL:
+            if (typeof handlers.onApproval === 'function') {
+              handlers.onApproval(decoded, fromPeer);
+            }
+            break;
+          case MessageType.APPROVAL_RESULT:
+            if (typeof handlers.onApprovalResult === 'function') {
+              handlers.onApprovalResult(decoded, fromPeer);
+            }
+            break;
+          case MessageType.EXECUTION_RESULT:
+            if (typeof handlers.onExecutionResult === 'function') {
+              handlers.onExecutionResult(decoded, fromPeer);
+            } else if (typeof handlers.onExecutionResponse === 'function') {
+              handlers.onExecutionResponse(decoded, fromPeer);
+            }
+            break;
           case MessageType.EXECUTION_RESPONSE:
             if (typeof handlers.onExecutionResponse === 'function') {
               handlers.onExecutionResponse(decoded, fromPeer);

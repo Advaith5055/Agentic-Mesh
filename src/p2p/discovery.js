@@ -240,6 +240,19 @@ export class PeerRegistry extends EventEmitter {
   }
 
   /**
+   * Adds or updates a peer with addresses and info.
+   *
+   * @param {string} peerId - The peer identifier.
+   * @param {string[]} [addrs=[]] - Peer multiaddrs.
+   * @param {Object} [info={}] - Peer metadata.
+   * @returns {Object} The updated peer record.
+   */
+  addPeer(peerId, addrs = [], info = {}) {
+    this.setInfo(peerId, { ...info, addrs });
+    return this.peers.get(peerId);
+  }
+
+  /**
    * Updates a peer's advertised role and node name.
    *
    * @param {string} peerId - The peer ID.
@@ -299,6 +312,16 @@ export class PeerRegistry extends EventEmitter {
    */
   getPeerCount() {
     return this.peers.size;
+  }
+
+  /**
+   * Retrieves a peer by its peer ID.
+   * 
+   * @param {string} peerId - The peer ID string.
+   * @returns {Object|null} The peer info object or null.
+   */
+  getPeer(peerId) {
+    return this.peers.get(peerId) || null;
   }
 
   /**

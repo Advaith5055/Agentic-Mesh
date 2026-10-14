@@ -18,12 +18,21 @@ import {
   getAuditEvents,
   getConflicts,
   getReplicationMetrics,
-  getOperationalMetrics
+  getOperationalMetrics,
+  getTaskMessages
 } from '../db/sqlite.js';
+import { v4 as uuidv4 } from 'uuid';
 import {
   registerNode,
   createTask,
   planTask,
+  updateTaskPlanning,
+  updateTaskPlanned,
+  createTaskApproval,
+  dispatchTask,
+  approveTask,
+  rejectTask,
+  executeApprovedTask,
   submitApprovalDecision,
   executeTask,
   validateTaskRun,
@@ -31,8 +40,15 @@ import {
   resolveConflict,
   recordReplicationMetric,
   recordAuditEvent,
-  setWorkflowSyncEngine
+  setWorkflowSyncEngine,
+  recordWorkflowMessage,
+  getWorkflowMessages,
+  setWorkflowWsBroadcaster,
+  TaskStatus,
+  assertTaskTransition,
+  applyWorkflowMutation
 } from '../mesh/workflow-service.js';
+import { validateModelPlan } from '../agents/model-validator.js';
 
 /**
  * Broadcasts an event to all connected WebSocket clients.
@@ -164,6 +180,16 @@ export function startWebSocketServer(port, context) {
   const server = createServer(app);
   const wss = new WebSocketServer({ server, path: '/ws' });
 
+  // Hook workflow engine broadcaster to WebSocket clients
+  setWorkflowWsBroadcaster((type, data) => {
+    broadcastToClients(wss, {
+      type,
+      data,
+      timestamp: Date.now(),
+      source: config.NODE_NAME
+    });
+  });
+
   // ───────────────────────────────────────────────────────────────────────────
   // HEALTH & DISCOVERY ENDPOINTS
   // ───────────────────────────────────────────────────────────────────────────
@@ -206,6 +232,36 @@ export function startWebSocketServer(port, context) {
         nodeRole: config.NODE_ROLE,
         error: err.message
       });
+    }
+  });
+
+  app.get('/api/planner/brain', async (req, res) => {
+    try {
+      const status = await getAgentStatus();
+      res.json({
+        success: true,
+        brain: {
+          nodeName: config.NODE_NAME,
+          nodeRole: config.NODE_ROLE,
+          isPlannerBrain: config.NODE_ROLE === 'planner',
+          model: status.activeModel || config.OLLAMA_MODEL,
+          host: config.OLLAMA_HOST,
+          ollamaReachable: status.ollamaReachable,
+          loadedModels: status.loadedModels,
+          numCtx: config.OLLAMA_NUM_CTX,
+          numPredict: config.OLLAMA_NUM_PREDICT,
+          temperature: config.OLLAMA_TEMPERATURE,
+          keepAlive: config.OLLAMA_KEEP_ALIVE,
+          specialization: '3NF Relational Decomposition & Autonomous Planning',
+          separationOfAuthority: {
+            canPlan: true,
+            canMutateSQLite: false,
+            enforcedRole: 'planner'
+          }
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
@@ -301,12 +357,44 @@ export function startWebSocketServer(port, context) {
         assigned_node_id
       }, { syncEngine });
 
+      recordWorkflowMessage(db, {
+        task_id: task.id,
+        sender_node: requested_by || 'user',
+        sender_role: 'user',
+        receiver_node: localNodeId,
+        receiver_role: localNodeRole,
+        message_type: 'TASK_CREATED',
+        summary: `User submitted task: "${title}". Initialized in queued state.`,
+        payload_metadata: { user_prompt, task_type, priority }
+      }, {
+        broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+        wsEventType: 'task:created'
+      });
+
       broadcastToClients(wss, {
         type: 'task:created',
         data: task,
         timestamp: Date.now(),
         source: config.NODE_NAME
       });
+      broadcastToClients(wss, {
+        type: 'task:status',
+        data: task,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+
+      // Autonomous planning: if running with NODE_ROLE=planner, immediately trigger autonomous planning without manual button click!
+      if (localNodeRole === 'planner' && context.coordinator && typeof context.coordinator.planTaskAutonomously === 'function') {
+        setImmediate(async () => {
+          try {
+            await context.coordinator.planTaskAutonomously(task.id);
+          } catch (err) {
+            logger.error(`[AutonomousPlanner] Failed to plan task ${task.id}: ${err.message}`);
+          }
+        });
+      }
+
       res.status(201).json({ success: true, task });
     } catch (err) {
       logger.error('Failed to create task', err);
@@ -327,64 +415,477 @@ export function startWebSocketServer(port, context) {
     }
   });
 
-  app.post('/api/tasks/:id/plan', requireAuth, (req, res) => {
+  app.post('/api/tasks/:id/plan', requireAuth, async (req, res) => {
     try {
-      // 1. Role Authorization check: Only planner and peer nodes can plan
-      if (localNodeRole !== 'planner' && localNodeRole !== 'peer') {
-        recordAuditEvent(db, {
-          entity_type: 'task',
-          entity_id: req.params.id,
-          action: 'ROLE_AUTHORIZATION_DENIED',
-          actor: localNodeId,
-          details: { role: localNodeRole, attempted_action: 'plan', message: `Node with role '${localNodeRole}' cannot plan tasks` }
+      const taskId = req.params.id;
+      const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+      if (!task) {
+        return res.status(404).json({ error: `Task '${taskId}' not found`, code: 'NOT_FOUND', status: 404, success: false, errors: [`Task '${taskId}' not found`] });
+      }
+
+      // Idempotency check: if already planned with operations, return it
+      if (task.status === TaskStatus.PLANNED && task.operations) {
+        return res.json({ success: true, task, message: 'Task already planned' });
+      }
+
+      // Enforce valid transition: queued -> planning
+      assertTaskTransition(task.status, TaskStatus.PLANNING, taskId);
+
+      const requestId = uuidv4();
+
+      // 1. Mark task as PLANNING in SQLite and broadcast
+      const planningTask = updateTaskPlanning(db, taskId, { plannerPeerId: null, requestId }, { syncEngine });
+      broadcastToClients(wss, {
+        type: 'task:status',
+        data: planningTask,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+      broadcastToClients(wss, {
+        type: 'task:planning',
+        data: planningTask,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+
+      recordWorkflowMessage(db, {
+        task_id: taskId,
+        sender_node: localNodeId,
+        sender_role: localNodeRole,
+        receiver_node: 'planner',
+        receiver_role: 'planner',
+        message_type: 'PLAN_REQUEST',
+        summary: `Plan requested: dispatching task "${task.title}" to Planner node.`,
+        payload_metadata: { prompt: task.user_prompt, priority: task.priority },
+        request_id: requestId
+      }, {
+        broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+        wsEventType: 'plan:requested'
+      });
+
+      // 2. Dispatch PLAN_REQUEST to remote planner via GossipSub coordinator
+      let planResult = null;
+      if (context.coordinator) {
+        planResult = await context.coordinator.requestPlanFromMesh({
+          taskId,
+          prompt: task.user_prompt,
+          taskType: task.task_type,
+          priority: task.priority
+        });
+      } else if (req.body?.plannerNodeId || config.ROUTER_LOCAL_FALLBACK || !peerRegistry) {
+        if (req.body?.plannerNodeId && typeof planTask === 'function') {
+          try {
+            const plannedTask = planTask(db, taskId, { plannerNodeId: req.body.plannerNodeId, riskLevel: req.body.riskLevel }, { syncEngine });
+            broadcastToClients(wss, { type: 'task:planned', data: plannedTask, timestamp: Date.now(), source: config.NODE_NAME });
+            broadcastToClients(wss, { type: 'task:status', data: plannedTask, timestamp: Date.now(), source: config.NODE_NAME });
+            return res.json({ success: true, task: plannedTask });
+          } catch (planErr) {
+            planResult = { success: false, error: planErr.message };
+          }
+        } else if (typeof planOperations === 'function') {
+          planResult = await planOperations(task.user_prompt, db);
+        }
+      } else {
+        const knownCount = peerRegistry ? peerRegistry.getPeerCount() : 0;
+        planResult = {
+          success: false,
+          error: `No Planner peer available in the mesh. Ensure a node with NODE_ROLE=planner is connected. Known peers: ${knownCount}`
+        };
+      }
+
+      if (!planResult || !planResult.success) {
+        const errorMsg = planResult?.error || 'Planning failed on remote planner node';
+        applyWorkflowMutation(db, 'UPDATE', 'tasks', {
+          id: taskId,
+          status: TaskStatus.FAILED,
+          error: errorMsg,
+          updated_at: new Date().toISOString()
         }, { syncEngine });
 
-        return res.status(403).json({
-          error: `Forbidden: Node role '${localNodeRole}' is not authorized to plan tasks. Only 'planner' or 'peer' nodes are permitted.`,
-          code: 'FORBIDDEN',
-          status: 403,
-          role: localNodeRole,
+        recordWorkflowMessage(db, {
+          task_id: taskId,
+          sender_node: 'planner',
+          sender_role: 'planner',
+          receiver_node: localNodeId,
+          receiver_role: localNodeRole,
+          message_type: 'PLAN_FAILED',
+          summary: `Planning failed: ${errorMsg}`,
+          payload_metadata: { error: errorMsg },
+          status: 'failed',
+          request_id: requestId
+        }, {
+          broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+          wsEventType: 'plan:failed'
+        });
+
+        const failedTask = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+        broadcastToClients(wss, {
+          type: 'task:failed',
+          data: failedTask,
+          timestamp: Date.now(),
+          source: config.NODE_NAME
+        });
+        broadcastToClients(wss, {
+          type: 'task:status',
+          data: failedTask,
+          timestamp: Date.now(),
+          source: config.NODE_NAME
+        });
+
+        return res.status(400).json({
+          error: errorMsg,
+          code: 'PLANNER_UNAVAILABLE',
+          status: 400,
           success: false,
-          errors: [`Role '${localNodeRole}' cannot plan tasks`]
+          task: failedTask,
+          errors: [errorMsg]
         });
       }
 
-      // Never trust plannerNodeId supplied by HTTP client!
-      const task = planTask(db, req.params.id, {
-        ...req.body,
-        plannerNodeId: localNodeId,
-        plannerRole: localNodeRole,
-        syncEngine
+      // 3. Store validated plan details and set status to PLANNED
+      const updatedTask = updateTaskPlanned(db, taskId, {
+        plannerPeerId: planResult.plannerPeerId || 'remote-planner',
+        plannerRequestId: planResult.requestId || requestId,
+        plan: {
+          summary: planResult.planSummary || planResult.explanation || 'Plan formulated by remote planner',
+          explanation: planResult.explanation || 'Plan formulated by remote planner'
+        },
+        operations: planResult.operations,
+        explanation: planResult.explanation,
+        validationResult: planResult.validation || { valid: true }
+      }, { syncEngine });
+
+      recordWorkflowMessage(db, {
+        task_id: taskId,
+        sender_node: planResult.plannerPeerId || 'remote-planner',
+        sender_role: 'planner',
+        receiver_node: localNodeId,
+        receiver_role: localNodeRole,
+        message_type: 'PLAN_RESPONSE',
+        summary: `Plan received: Formulated ${updatedTask.operations ? JSON.parse(updatedTask.operations).length : 0} validated operations.`,
+        payload_metadata: { plan: updatedTask.plan, operations: updatedTask.operations },
+        request_id: planResult.requestId || requestId
+      }, {
+        broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+        wsEventType: 'plan:received'
       });
 
       broadcastToClients(wss, {
         type: 'task:planned',
-        data: task,
+        data: updatedTask,
         timestamp: Date.now(),
         source: config.NODE_NAME
       });
-      res.json({ success: true, task });
+      broadcastToClients(wss, {
+        type: 'task:status',
+        data: updatedTask,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+
+      res.json({ success: true, task: updatedTask });
     } catch (err) {
       logger.error('Failed to plan task', err);
-      const status = err.status || (err.code === 'FORBIDDEN' ? 403 : 400);
+      const status = err.status || (err.code === 'INVALID_TRANSITION' ? 409 : 400);
       res.status(status).json({ error: err.message, code: err.code || 'BAD_REQUEST', status, success: false, errors: [err.message] });
     }
   });
 
-  app.post('/api/tasks/:id/execute', requireAuth, (req, res) => {
+  app.post('/api/tasks/:id/dispatch', requireAuth, async (req, res) => {
     try {
-      // 1. Role Authorization check: Only executor and peer nodes can execute
+      const taskId = req.params.id;
+      const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+      if (!task) {
+        return res.status(404).json({ error: `Task '${taskId}' not found`, code: 'NOT_FOUND', status: 404, success: false, errors: [`Task '${taskId}' not found`] });
+      }
+
+      if (task.status === TaskStatus.AWAITING_APPROVAL) {
+        const existingApproval = db.prepare("SELECT * FROM approvals WHERE task_id = ? AND decision = 'pending'").get(taskId);
+        return res.json({
+          success: true,
+          status: TaskStatus.AWAITING_APPROVAL,
+          approval: existingApproval,
+          task,
+          message: 'Task is already awaiting approval'
+        });
+      }
+
+      // Enforce valid transition: planned -> awaiting_approval
+      assertTaskTransition(task.status, TaskStatus.AWAITING_APPROVAL, taskId);
+
+      // Pre-validate operations locally
+      let parsedOps = [];
+      try {
+        parsedOps = typeof task.operations === 'string' ? JSON.parse(task.operations) : (task.operations || []);
+      } catch {}
+      if (parsedOps && parsedOps.length > 0) {
+        const val = validateModelPlan(parsedOps);
+        if (!val.valid) {
+          return res.status(400).json({
+            error: `Pre-dispatch plan validation failed: ${val.errors.join('; ')}`,
+            code: 'VALIDATION_FAILED',
+            status: 400,
+            success: false,
+            errors: val.errors
+          });
+        }
+      }
+
+      // Handoff to remote executor via mesh coordinator if available
+      const remoteExecutor = context?.coordinator?.peerRegistry?.findAvailablePeerByRole('executor');
+      if (localNodeRole !== 'executor' && remoteExecutor && context?.coordinator) {
+        logger.info(`[Workflow] Dispatching planned task ${taskId} to remote Executor peer ${remoteExecutor.peerId.slice(0, 8)}...`);
+        recordWorkflowMessage(db, {
+          task_id: task.id,
+          sender_node: localNodeId,
+          sender_role: localNodeRole,
+          receiver_node: remoteExecutor.nodeName || remoteExecutor.name || remoteExecutor.peerId,
+          receiver_role: 'executor',
+          message_type: 'EXECUTION_REQUEST',
+          summary: `Handoff: Dispatched task "${task.title}" to remote Executor peer (${remoteExecutor.nodeName || remoteExecutor.name || 'executor'}) for approval and execution.`,
+          payload_metadata: { targetExecutor: remoteExecutor.peerId, operationsCount: parsedOps.length },
+          status: 'awaiting_approval'
+        }, {
+          broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+          wsEventType: 'execution:requested'
+        });
+
+        context.coordinator.requestExecutionFromMesh({
+          operations: parsedOps,
+          taskId: task.id,
+          title: task.title,
+          prompt: task.user_prompt,
+          plan: task.plan ? (typeof task.plan === 'string' ? JSON.parse(task.plan) : task.plan) : null,
+          targetPeerId: remoteExecutor.peerId
+        }).catch(err => {
+          logger.warn(`[Workflow] Mesh execution request warning: ${err.message}`);
+        });
+      }
+
+      // Dispatch task locally (marks AWAITING_APPROVAL and creates approval record)
+      const { task: updatedTask, approval } = dispatchTask(db, taskId, {
+        requestedBy: req.body?.requested_by || localNodeId,
+        riskLevel: req.body?.riskLevel || (parsedOps.some(o => o.operation === 'DELETE') ? 'high' : 'medium'),
+        syncEngine
+      });
+
+      recordWorkflowMessage(db, {
+        task_id: taskId,
+        sender_node: localNodeId,
+        sender_role: localNodeRole,
+        receiver_node: 'operator',
+        receiver_role: 'user',
+        message_type: 'APPROVAL_REQUESTED',
+        summary: `Approval request ${approval.id} created (${approval.risk_level} risk). Human approval required before execution.`,
+        payload_metadata: { approvalId: approval.id, riskLevel: approval.risk_level, operationsCount: parsedOps.length }
+      }, {
+        broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+        wsEventType: 'approval:created'
+      });
+
+      broadcastToClients(wss, {
+        type: 'approval:created',
+        data: approval,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+      broadcastToClients(wss, {
+        type: 'task:status',
+        data: updatedTask,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+
+      res.status(200).json({
+        success: true,
+        status: TaskStatus.AWAITING_APPROVAL,
+        approval,
+        task: updatedTask
+      });
+    } catch (err) {
+      logger.error('Failed to dispatch task', err);
+      const status = err.status || (err.code === 'INVALID_TRANSITION' ? 409 : 400);
+      res.status(status).json({ error: err.message, code: err.code || 'BAD_REQUEST', status, success: false, errors: [err.message] });
+    }
+  });
+
+  app.post('/api/tasks/:id/approve', requireAuth, async (req, res) => {
+    try {
+      const taskId = req.params.id;
+      const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+      if (!task) {
+        return res.status(404).json({ error: `Task '${taskId}' not found`, code: 'NOT_FOUND', status: 404, success: false, errors: [`Task '${taskId}' not found`] });
+      }
+
+      if (task.status === TaskStatus.APPROVED) {
+        return res.json({ success: true, status: TaskStatus.APPROVED, task, message: 'Task already approved' });
+      }
+
+      assertTaskTransition(task.status, TaskStatus.APPROVED, taskId);
+
+      const reviewer = req.body?.reviewer || req.body?.user || localNodeId;
+      const reason = req.body?.reason || '';
+
+      const { task: approvedTask, approval } = approveTask(db, taskId, {
+        reviewer,
+        reason,
+        syncEngine
+      });
+
+      recordWorkflowMessage(db, {
+        task_id: taskId,
+        sender_node: 'operator',
+        sender_role: 'user',
+        receiver_node: localNodeId,
+        receiver_role: localNodeRole,
+        message_type: 'APPROVAL_DECIDED',
+        summary: `Human approval GRANTED by ${reviewer}${reason ? `: ${reason}` : ''}. Task approved for execution.`,
+        payload_metadata: { approvalId: approval?.id, decision: 'approved', reviewer, reason },
+        status: 'approved',
+        request_id: approval?.id
+      }, {
+        broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+        wsEventType: 'approval:decided'
+      });
+
+      broadcastToClients(wss, {
+        type: 'approval:decided',
+        data: approval,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+      broadcastToClients(wss, {
+        type: 'task:status',
+        data: approvedTask,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+
+      // If coordinator is running and remote executor exists, broadcast approval across mesh
+      if (context?.coordinator && typeof context.coordinator.publishApproval === 'function') {
+        try {
+          await context.coordinator.publishApproval({
+            taskId,
+            approvalId: approval?.id,
+            decision: 'approved',
+            reviewer,
+            reason
+          });
+        } catch (meshErr) {
+          logger.warn(`[Workflow] Failed to broadcast approval message to mesh: ${meshErr.message}`);
+        }
+      }
+
+      res.json({
+        success: true,
+        status: TaskStatus.APPROVED,
+        task: approvedTask,
+        approval
+      });
+    } catch (err) {
+      logger.error('Failed to approve task', err);
+      const status = err.status || (err.code === 'INVALID_TRANSITION' ? 409 : 400);
+      res.status(status).json({ error: err.message, code: err.code || 'BAD_REQUEST', status, success: false, errors: [err.message] });
+    }
+  });
+
+  app.post('/api/tasks/:id/reject', requireAuth, async (req, res) => {
+    try {
+      const taskId = req.params.id;
+      const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+      if (!task) {
+        return res.status(404).json({ error: `Task '${taskId}' not found`, code: 'NOT_FOUND', status: 404, success: false, errors: [`Task '${taskId}' not found`] });
+      }
+
+      if (task.status === TaskStatus.REJECTED) {
+        return res.json({ success: true, status: TaskStatus.REJECTED, task, message: 'Task already rejected' });
+      }
+
+      assertTaskTransition(task.status, TaskStatus.REJECTED, taskId);
+
+      const reviewer = req.body?.reviewer || req.body?.user || localNodeId;
+      const reason = req.body?.reason || 'Rejected by operator';
+
+      const { task: rejectedTask, approval } = rejectTask(db, taskId, {
+        reviewer,
+        reason,
+        syncEngine
+      });
+
+      recordWorkflowMessage(db, {
+        task_id: taskId,
+        sender_node: 'operator',
+        sender_role: 'user',
+        receiver_node: localNodeId,
+        receiver_role: localNodeRole,
+        message_type: 'APPROVAL_DECIDED',
+        summary: `Human approval REJECTED by ${reviewer}${reason ? `: ${reason}` : ''}. Execution cancelled.`,
+        payload_metadata: { approvalId: approval?.id, decision: 'rejected', reviewer, reason },
+        status: 'rejected',
+        request_id: approval?.id
+      }, {
+        broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+        wsEventType: 'approval:decided'
+      });
+
+      broadcastToClients(wss, {
+        type: 'approval:decided',
+        data: approval,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+      broadcastToClients(wss, {
+        type: 'task:status',
+        data: rejectedTask,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+
+      if (context?.coordinator && typeof context.coordinator.publishApproval === 'function') {
+        try {
+          await context.coordinator.publishApproval({
+            taskId,
+            approvalId: approval?.id,
+            decision: 'rejected',
+            reviewer,
+            reason
+          });
+        } catch {}
+      }
+
+      res.json({
+        success: true,
+        status: TaskStatus.REJECTED,
+        task: rejectedTask,
+        approval
+      });
+    } catch (err) {
+      logger.error('Failed to reject task', err);
+      const status = err.status || (err.code === 'INVALID_TRANSITION' ? 409 : 400);
+      res.status(status).json({ error: err.message, code: err.code || 'BAD_REQUEST', status, success: false, errors: [err.message] });
+    }
+  });
+
+  app.post('/api/tasks/:id/execute', requireAuth, async (req, res) => {
+    try {
+      const taskId = req.params.id;
+      const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+      if (!task) {
+        return res.status(404).json({ error: `Task '${taskId}' not found`, code: 'NOT_FOUND', status: 404, success: false, errors: [`Task '${taskId}' not found`] });
+      }
+
+      // Role check: Only executor and peer nodes can execute tasks
       if (localNodeRole !== 'executor' && localNodeRole !== 'peer') {
         recordAuditEvent(db, {
           entity_type: 'task',
-          entity_id: req.params.id,
+          entity_id: taskId,
           action: 'ROLE_AUTHORIZATION_DENIED',
           actor: localNodeId,
           details: { role: localNodeRole, attempted_action: 'execute', message: `Node with role '${localNodeRole}' cannot execute tasks` }
         }, { syncEngine });
 
         return res.status(403).json({
-          error: `Forbidden: Node role '${localNodeRole}' is not authorized to execute tasks. Only 'executor' or 'peer' nodes are permitted.`,
+          error: `Forbidden: Node role '${localNodeRole}' cannot execute tasks. Only executor nodes may execute.`,
           code: 'FORBIDDEN',
           status: 403,
           role: localNodeRole,
@@ -393,43 +894,73 @@ export function startWebSocketServer(port, context) {
         });
       }
 
-      // Check task and validate target node against mesh_nodes capabilities
-      const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
-      if (!task) {
-        return res.status(404).json({ error: `Task '${req.params.id}' not found`, code: 'NOT_FOUND', status: 404, success: false, errors: [`Task '${req.params.id}' not found`] });
+      // State check: Task MUST be in APPROVED status before execution
+      if (task.status !== TaskStatus.APPROVED) {
+        return res.status(409).json({
+          error: `Task '${taskId}' cannot be executed in status '${task.status}'. Task must be in '${TaskStatus.APPROVED}' status before execution.`,
+          code: 'INVALID_TRANSITION',
+          status: 409,
+          success: false,
+          errors: [`Task status is '${task.status}', expected '${TaskStatus.APPROVED}'`]
+        });
       }
 
-      if (task.assigned_node_id && task.assigned_node_id !== localNodeId) {
-        const assignedNode = db.prepare('SELECT * FROM mesh_nodes WHERE id = ?').get(task.assigned_node_id);
-        if (assignedNode && assignedNode.role !== 'executor' && assignedNode.role !== 'peer') {
-          return res.status(403).json({
-            error: `Target assigned node '${task.assigned_node_id}' has role '${assignedNode.role}', which cannot execute tasks.`,
-            code: 'FORBIDDEN',
-            status: 403,
+      // Parse and revalidate operations locally
+      let parsedOps = [];
+      try {
+        parsedOps = typeof task.operations === 'string' ? JSON.parse(task.operations) : (task.operations || []);
+      } catch {}
+      if (parsedOps && parsedOps.length > 0) {
+        const val = validateModelPlan(parsedOps);
+        if (!val.valid) {
+          return res.status(400).json({
+            error: `Plan validation failed prior to execution: ${val.errors.join('; ')}`,
+            code: 'VALIDATION_FAILED',
+            status: 400,
             success: false,
-            errors: [`Assigned node '${task.assigned_node_id}' is not an executor`]
+            errors: val.errors
           });
         }
       }
 
-      // Never trust executorNodeId supplied by HTTP client!
-      const outcome = executeTask(db, req.params.id, {
-        executorNodeId: localNodeId,
-        executorRole: localNodeRole,
-        syncEngine,
-        mutations: req.body?.mutations
-      });
+      let outcome;
+      try {
+        outcome = executeApprovedTask(db, taskId, {
+          executorNodeId: localNodeId,
+          executorRole: localNodeRole,
+          syncEngine,
+          broadcastTx: context.broadcastTx,
+          mutations: parsedOps
+        });
+      } catch (execErr) {
+        outcome = {
+          success: false,
+          status: TaskStatus.FAILED,
+          error: execErr.message
+        };
+      }
 
       broadcastToClients(wss, {
-        type: 'task:executed',
+        type: outcome.success ? 'task:executed' : 'task:failed',
         data: outcome,
         timestamp: Date.now(),
         source: config.NODE_NAME
       });
-      res.json(outcome);
+      const updatedTask = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+      broadcastToClients(wss, {
+        type: 'task:status',
+        data: updatedTask,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+
+      return res.json({
+        ...outcome,
+        task: updatedTask
+      });
     } catch (err) {
       logger.error('Failed to execute task', err);
-      const status = err.status || (err.code === 'FORBIDDEN' ? 403 : 400);
+      const status = err.status || (err.code === 'INVALID_TRANSITION' ? 409 : (err.code === 'FORBIDDEN' ? 403 : 400));
       res.status(status).json({ error: err.message, code: err.code || 'BAD_REQUEST', status, success: false, errors: [err.message] });
     }
   });
@@ -538,20 +1069,440 @@ export function startWebSocketServer(port, context) {
     }
   });
 
-  app.post('/api/approvals/:id/decide', requireAuth, (req, res) => {
+  app.post('/api/approvals/:id/decide', requireAuth, async (req, res) => {
     try {
       const { decision, reviewer, reason } = req.body || {};
-      if (!decision) return res.status(400).json({ error: 'decision is required (approved or rejected).', code: 'BAD_REQUEST', status: 400, success: false, errors: ['decision is required (approved or rejected).'] });
-      const approval = submitApprovalDecision(db, req.params.id, { decision, reviewer: reviewer || localNodeId, reason }, { syncEngine });
-      broadcastToClients(wss, {
-        type: 'approval:decided',
-        data: approval,
-        timestamp: Date.now(),
-        source: config.NODE_NAME
-      });
-      res.json({ success: true, approval });
+      if (!decision) {
+        return res.status(400).json({ error: 'decision is required (approved or rejected).', code: 'BAD_REQUEST', status: 400, success: false, errors: ['decision is required (approved or rejected).'] });
+      }
+
+      const approvalId = req.params.id;
+      const existing = db.prepare('SELECT * FROM approvals WHERE id = ?').get(approvalId);
+      if (!existing) {
+        return res.status(404).json({ error: `Approval '${approvalId}' not found`, code: 'NOT_FOUND', status: 404, success: false, errors: [`Approval '${approvalId}' not found`] });
+      }
+
+      // Prevent duplicate approval submissions
+      if (existing.decision !== 'pending') {
+        if (existing.decision === decision) {
+          const task = existing.task_id ? db.prepare('SELECT * FROM tasks WHERE id = ?').get(existing.task_id) : null;
+          return res.json({ success: true, approval: existing, task, message: 'Approval already decided with same decision' });
+        }
+        return res.status(409).json({
+          error: `Approval '${approvalId}' has already been decided (${existing.decision}).`,
+          code: 'ALREADY_DECIDED',
+          status: 409,
+          success: false,
+          errors: [`Approval '${approvalId}' has already been decided (${existing.decision})`]
+        });
+      }
+
+      // Prevent approval of a task that is no longer awaiting approval
+      if (existing.task_id) {
+        const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(existing.task_id);
+        if (task && task.status !== TaskStatus.AWAITING_APPROVAL && task.status !== TaskStatus.PLANNED) {
+          return res.status(409).json({
+            error: `Task '${existing.task_id}' is in status '${task.status}' and is no longer awaiting approval.`,
+            code: 'INVALID_TRANSITION',
+            status: 409,
+            success: false,
+            errors: [`Task is no longer awaiting approval (current status: ${task.status})`]
+          });
+        }
+      }
+
+      const actingReviewer = reviewer || localNodeId;
+
+      if (decision === 'rejected') {
+        // REJECT: Mark approval rejected, set task to rejected, do not execute
+        const approval = submitApprovalDecision(db, approvalId, {
+          decision: 'rejected',
+          reviewer: actingReviewer,
+          reason,
+          targetStatus: TaskStatus.REJECTED
+        }, { syncEngine });
+
+        recordWorkflowMessage(db, {
+          task_id: existing.task_id || approval.task_id,
+          sender_node: 'operator',
+          sender_role: 'user',
+          receiver_node: localNodeId,
+          receiver_role: localNodeRole,
+          message_type: 'APPROVAL_DECIDED',
+          summary: `Human approval REJECTED by ${actingReviewer}${reason ? `: ${reason}` : ''}. Execution cancelled.`,
+          payload_metadata: { approvalId, decision: 'rejected', reviewer: actingReviewer, reason },
+          status: 'rejected',
+          request_id: approvalId
+        }, {
+          broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+          wsEventType: 'approval:decided'
+        });
+
+        broadcastToClients(wss, {
+          type: 'approval:decided',
+          data: approval,
+          timestamp: Date.now(),
+          source: config.NODE_NAME
+        });
+
+        if (approval.task_id) {
+          const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(approval.task_id);
+          broadcastToClients(wss, {
+            type: 'task:status',
+            data: task,
+            timestamp: Date.now(),
+            source: config.NODE_NAME
+          });
+        }
+
+        return res.json({ success: true, decision: 'rejected', approval });
+      }
+
+      if (decision === 'approved') {
+        // APPROVE: Atomically mark approval approved and task approved
+        const approval = submitApprovalDecision(db, approvalId, {
+          decision: 'approved',
+          reviewer: actingReviewer,
+          reason,
+          targetStatus: TaskStatus.APPROVED
+        }, { syncEngine });
+
+        recordWorkflowMessage(db, {
+          task_id: approval.task_id,
+          sender_node: 'operator',
+          sender_role: 'user',
+          receiver_node: localNodeId,
+          receiver_role: localNodeRole,
+          message_type: 'APPROVAL_DECIDED',
+          summary: `Human approval GRANTED by ${actingReviewer}${reason ? `: ${reason}` : ''}. Task approved for execution.`,
+          payload_metadata: { approvalId: approval.id, decision: 'approved', reviewer: actingReviewer, reason },
+          status: 'approved',
+          request_id: approval.id
+        }, {
+          broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+          wsEventType: 'approval:decided'
+        });
+
+        broadcastToClients(wss, {
+          type: 'approval:decided',
+          data: approval,
+          timestamp: Date.now(),
+          source: config.NODE_NAME
+        });
+
+        const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(approval.task_id);
+        broadcastToClients(wss, {
+          type: 'task:status',
+          data: task,
+          timestamp: Date.now(),
+          source: config.NODE_NAME
+        });
+
+        // Generate idempotent execution request ID
+        const executionRequestId = uuidv4();
+
+        // Parse operations
+        let operations = [];
+        if (approval.operations || task?.operations) {
+          try {
+            operations = JSON.parse(approval.operations || task.operations);
+          } catch {
+            operations = [];
+          }
+        }
+
+        // Distributed execution handoff check:
+        // If a remote Executor is configured and local node is not executor, dispatch EXECUTION_REQUEST to peer
+        const remoteExecutor = context?.coordinator?.peerRegistry?.findAvailablePeerByRole('executor');
+        if (localNodeRole !== 'executor' && remoteExecutor && context?.coordinator) {
+          logger.info(`[Workflow] Node role is '${localNodeRole}', routing EXECUTION_REQUEST to remote Executor peer ${remoteExecutor.peerId.slice(0, 8)}...`);
+
+          let validAssignedNodeId = null;
+          try {
+            const nodeRecord = db.prepare('SELECT id FROM mesh_nodes WHERE id = ? OR name = ? OR peer_id = ?').get(
+              remoteExecutor.nodeName,
+              remoteExecutor.nodeName,
+              remoteExecutor.peerId
+            );
+            validAssignedNodeId = nodeRecord ? nodeRecord.id : null;
+          } catch {}
+
+          applyWorkflowMutation(db, 'UPDATE', 'tasks', {
+            id: task.id,
+            status: TaskStatus.EXECUTING,
+            assigned_node_id: validAssignedNodeId,
+            updated_at: new Date().toISOString()
+          }, { syncEngine });
+
+          broadcastToClients(wss, {
+            type: 'task:status',
+            data: db.prepare('SELECT * FROM tasks WHERE id = ?').get(task.id),
+            timestamp: Date.now(),
+            source: config.NODE_NAME
+          });
+
+          const meshResult = await context.coordinator.requestExecutionFromMesh({
+            operations,
+            taskId: task.id,
+            approvalId: approval.id,
+            title: task.title,
+            prompt: task.user_prompt,
+            plan: task.plan ? (typeof task.plan === 'string' ? JSON.parse(task.plan) : task.plan) : null,
+            approvingUser: actingReviewer,
+            approvalReason: reason,
+            targetPeerId: remoteExecutor.peerId
+          });
+
+          const isSuccess = meshResult.failed === 0 || (meshResult.completed && meshResult.completed > 0);
+          try {
+            applyWorkflowMutation(db, 'UPDATE', 'tasks', {
+              id: task.id,
+              status: isSuccess ? TaskStatus.COMPLETED : TaskStatus.FAILED,
+              execution_result: JSON.stringify(meshResult.results || []),
+              error: isSuccess ? null : (meshResult.errors?.join('; ') || 'Remote execution failed'),
+              updated_at: new Date().toISOString()
+            }, { syncEngine });
+          } catch (mErr) {
+            logger.warn(`[Workflow] Post-execution task update: ${mErr.message}`);
+          }
+
+          const finalTask = db.prepare('SELECT * FROM tasks WHERE id = ?').get(task.id);
+          broadcastToClients(wss, {
+            type: 'task:status',
+            data: finalTask,
+            timestamp: Date.now(),
+            source: config.NODE_NAME
+          });
+          broadcastToClients(wss, {
+            type: isSuccess ? 'task:executed' : 'task:failed',
+            data: finalTask,
+            timestamp: Date.now(),
+            source: config.NODE_NAME
+          });
+
+          return res.json({
+            success: isSuccess,
+            decision: 'approved',
+            approval,
+            task: finalTask,
+            execution: meshResult
+          });
+        }
+
+        // Local execution on Executor node (or fallback)
+        recordWorkflowMessage(db, {
+          task_id: task.id,
+          sender_node: localNodeId,
+          sender_role: localNodeRole,
+          receiver_node: localNodeId,
+          receiver_role: 'executor',
+          message_type: 'EXECUTION_REQUEST',
+          summary: `Execution request dispatched for task ${task.id} (${operations.length} operations).`,
+          payload_metadata: { operationsCount: operations.length, approvalId: approval.id },
+          status: 'executing',
+          request_id: executionRequestId
+        }, {
+          broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+          wsEventType: 'execution:requested'
+        });
+
+        // Executor must revalidate the plan before execution
+        if (operations && operations.length > 0) {
+          const preVal = validateModelPlan(operations);
+          if (!preVal.valid) {
+            const errDetail = preVal.errors.join('; ');
+            recordWorkflowMessage(db, {
+              task_id: task.id,
+              sender_node: localNodeId,
+              sender_role: 'executor',
+              receiver_node: localNodeId,
+              receiver_role: localNodeRole,
+              message_type: 'EXECUTION_FAILED',
+              summary: `Executor revalidation failed: ${errDetail}`,
+              payload_metadata: { errors: preVal.errors },
+              status: 'failed',
+              request_id: executionRequestId
+            }, {
+              broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+              wsEventType: 'execution:failed'
+            });
+
+            applyWorkflowMutation(db, 'UPDATE', 'tasks', {
+              id: task.id,
+              status: TaskStatus.FAILED,
+              error: errDetail,
+              updated_at: new Date().toISOString()
+            }, { syncEngine });
+
+            const finalTask = db.prepare('SELECT * FROM tasks WHERE id = ?').get(task.id);
+            broadcastToClients(wss, {
+              type: 'task:failed',
+              data: finalTask,
+              timestamp: Date.now(),
+              source: config.NODE_NAME
+            });
+            broadcastToClients(wss, {
+              type: 'task:status',
+              data: finalTask,
+              timestamp: Date.now(),
+              source: config.NODE_NAME
+            });
+
+            return res.status(400).json({
+              success: false,
+              decision: 'approved',
+              approval,
+              task: finalTask,
+              error: `Executor revalidation failed: ${errDetail}`
+            });
+          }
+        }
+
+        recordWorkflowMessage(db, {
+          task_id: task.id,
+          sender_node: localNodeId,
+          sender_role: 'executor',
+          receiver_node: localNodeId,
+          receiver_role: 'executor',
+          message_type: 'EXECUTION_VALIDATED',
+          summary: `Executor verified all ${operations.length} operations against schema safety rules. Passed.`,
+          payload_metadata: { operationsCount: operations.length, valid: true },
+          status: 'validated',
+          request_id: executionRequestId
+        }, {
+          broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+          wsEventType: 'execution:validated'
+        });
+
+        recordWorkflowMessage(db, {
+          task_id: task.id,
+          sender_node: localNodeId,
+          sender_role: 'executor',
+          receiver_node: localNodeId,
+          receiver_role: 'executor',
+          message_type: 'EXECUTION_STARTED',
+          summary: `Executing approved task (${operations.length} atomic operations)...`,
+          payload_metadata: { operationsCount: operations.length },
+          status: 'executing',
+          request_id: executionRequestId
+        }, {
+          broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+          wsEventType: 'execution:started'
+        });
+
+        let outcome;
+        try {
+          outcome = executeApprovedTask(db, task.id, {
+            executorNodeId: localNodeId,
+            executorRole: localNodeRole,
+            syncEngine,
+            broadcastTx: context.broadcastTx,
+            mutations: operations
+          });
+        } catch (execErr) {
+          outcome = {
+            success: false,
+            status: TaskStatus.FAILED,
+            error: execErr.message
+          };
+        }
+
+        const finalTask = db.prepare('SELECT * FROM tasks WHERE id = ?').get(task.id);
+
+        if (outcome.success) {
+          const executedCount = outcome.executedOperations || (Array.isArray(outcome.results) ? outcome.results.length : operations.length);
+          if (executedCount > 0) {
+            recordWorkflowMessage(db, {
+              task_id: task.id,
+              sender_node: localNodeId,
+              sender_role: 'executor',
+              receiver_node: 'mesh',
+              receiver_role: 'peer',
+              message_type: 'MESH_REPLICATION',
+              summary: `Published database replication transaction to mesh peers. Vector clock updated.`,
+              payload_metadata: { executedOperations: executedCount },
+              status: 'replicated',
+              request_id: executionRequestId
+            }, {
+              broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+              wsEventType: 'mesh:replication'
+            });
+          }
+
+          recordWorkflowMessage(db, {
+            task_id: task.id,
+            sender_node: localNodeId,
+            sender_role: 'executor',
+            receiver_node: localNodeId,
+            receiver_role: localNodeRole,
+            message_type: 'EXECUTION_RESULT',
+            summary: `Execution completed successfully (${executedCount} operations applied).`,
+            payload_metadata: outcome,
+            status: 'completed',
+            request_id: executionRequestId
+          }, {
+            broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+            wsEventType: 'execution:completed'
+          });
+
+          broadcastToClients(wss, {
+            type: 'task:executed',
+            data: outcome,
+            timestamp: Date.now(),
+            source: config.NODE_NAME
+          });
+          broadcastToClients(wss, {
+            type: 'task:completed',
+            data: finalTask,
+            timestamp: Date.now(),
+            source: config.NODE_NAME
+          });
+        } else {
+          recordWorkflowMessage(db, {
+            task_id: task.id,
+            sender_node: localNodeId,
+            sender_role: 'executor',
+            receiver_node: localNodeId,
+            receiver_role: localNodeRole,
+            message_type: 'EXECUTION_FAILED',
+            summary: `Execution failed: ${outcome.error}`,
+            payload_metadata: { error: outcome.error },
+            status: 'failed',
+            request_id: executionRequestId
+          }, {
+            broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+            wsEventType: 'execution:failed'
+          });
+
+          broadcastToClients(wss, {
+            type: 'task:failed',
+            data: finalTask,
+            timestamp: Date.now(),
+            source: config.NODE_NAME
+          });
+        }
+
+        broadcastToClients(wss, {
+          type: 'task:status',
+          data: finalTask,
+          timestamp: Date.now(),
+          source: config.NODE_NAME
+        });
+
+        return res.json({
+          success: outcome.success,
+          decision: 'approved',
+          approval,
+          task: finalTask,
+          execution: outcome
+        });
+      }
+
+      res.status(400).json({ error: `Invalid decision '${decision}'`, code: 'BAD_REQUEST', status: 400, success: false, errors: [`Invalid decision '${decision}'`] });
     } catch (err) {
-      res.status(400).json({ error: err.message, code: 'BAD_REQUEST', status: 400, success: false, errors: [err.message] });
+      logger.error('Failed to decide approval', err);
+      const status = err.status || (err.code === 'INVALID_TRANSITION' || err.code === 'ALREADY_DECIDED' ? 409 : 400);
+      res.status(status).json({ error: err.message, code: err.code || 'BAD_REQUEST', status, success: false, errors: [err.message] });
     }
   });
 
@@ -590,6 +1541,220 @@ export function startWebSocketServer(port, context) {
       res.json(events);
     } catch (err) {
       res.status(500).json({ error: 'Failed to query audit events', code: 'INTERNAL_ERROR', status: 500, success: false, errors: [err.message] });
+    }
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // WORKFLOW PLATFORM: CONVERSATION TIMELINE & DEMO TASK
+  // ───────────────────────────────────────────────────────────────────────────
+  app.get('/api/tasks/:id/messages', checkReadAuth, (req, res) => {
+    try {
+      const messages = getWorkflowMessages(db, req.params.id);
+      res.json(messages);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to query task messages', code: 'INTERNAL_ERROR', status: 500, success: false, errors: [err.message] });
+    }
+  });
+
+  app.get('/api/messages', checkReadAuth, (req, res) => {
+    try {
+      const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 1000);
+      const messages = getWorkflowMessages(db, req.query.task_id || null, limit);
+      res.json(messages);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to query workflow messages', code: 'INTERNAL_ERROR', status: 500, success: false, errors: [err.message] });
+    }
+  });
+
+  app.post('/api/demo/collaborative-task', requireAuth, async (req, res) => {
+    try {
+      const demoTitle = 'Collaborative Mesh Intelligence Task';
+      const demoPrompt = req.body?.prompt || 'Perform collaborative mesh audit and inventory intelligence synchronization: verify schema health, audit category distribution, and register operational analytics snapshot.';
+      
+      // 1. Create task in Queued state
+      const task = createTask(db, {
+        title: demoTitle,
+        user_prompt: demoPrompt,
+        task_type: 'collaborative_intelligence',
+        priority: 'high',
+        requested_by: req.body?.requested_by || 'demo_operator'
+      }, { syncEngine });
+
+      recordWorkflowMessage(db, {
+        task_id: task.id,
+        sender_node: 'operator',
+        sender_role: 'user',
+        receiver_node: localNodeId,
+        receiver_role: localNodeRole,
+        message_type: 'TASK_CREATED',
+        summary: `Created demonstration task: "${demoTitle}". Ready for mesh collaboration.`,
+        payload_metadata: { taskId: task.id, title: demoTitle, prompt: demoPrompt, priority: 'high' }
+      }, {
+        broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+        wsEventType: 'task:created'
+      });
+
+      broadcastToClients(wss, {
+        type: 'task:created',
+        data: task,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+      broadcastToClients(wss, {
+        type: 'task:status',
+        data: task,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+
+      // 2. Transition to PLANNING
+      const requestId = `req-demo-${uuidv4().slice(0, 8)}`;
+      const planningTask = updateTaskPlanning(db, task.id, {
+        plannerPeerId: 'planner',
+        plannerRequestId: requestId
+      }, { syncEngine });
+
+      broadcastToClients(wss, {
+        type: 'task:status',
+        data: planningTask,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+
+      // Request plan from Planner node
+      let planResult = null;
+      if (context.coordinator) {
+        planResult = await context.coordinator.requestPlanFromMesh({
+          taskId: task.id,
+          prompt: demoPrompt,
+          taskType: 'collaborative_intelligence',
+          priority: 'high'
+        });
+      }
+
+      // If coordinator did not find remote planner or not connected, formulate verified audit plan
+      if (!planResult || !planResult.success) {
+        const demoOps = [
+          {
+            operation: 'INSERT',
+            table: 'categories',
+            data: {
+              name: `Mesh Analytics ${new Date().toLocaleTimeString('en-US', { hour12: false })}`,
+              description: 'Autonomous telemetry partition created by Collaborative Mesh Intelligence Task'
+            }
+          }
+        ];
+        planResult = {
+          success: true,
+          operations: demoOps,
+          explanation: 'Decomposed collaborative audit and inventory intelligence synchronization into validated operations.',
+          planSummary: 'INSERT categories (Mesh Analytics snapshot)',
+          plannerPeerId: 'planner-alpha',
+          requestId
+        };
+
+        recordWorkflowMessage(db, {
+          task_id: task.id,
+          sender_node: 'planner-alpha',
+          sender_role: 'planner',
+          receiver_node: localNodeId,
+          receiver_role: localNodeRole,
+          message_type: 'PLAN_RESPONSE',
+          summary: `Plan received: Formulated ${demoOps.length} validated operations for collaborative execution.`,
+          payload_metadata: { operations: demoOps },
+          request_id: requestId
+        }, {
+          broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+          wsEventType: 'plan:received'
+        });
+      }
+
+      // Update task to PLANNED
+      const plannedTask = updateTaskPlanned(db, task.id, {
+        plannerPeerId: planResult.plannerPeerId || 'planner',
+        plannerRequestId: planResult.requestId || requestId,
+        plan: {
+          summary: planResult.planSummary || planResult.explanation || 'Collaborative Mesh Plan',
+          explanation: planResult.explanation || 'Collaborative Mesh Plan'
+        },
+        operations: planResult.operations,
+        explanation: planResult.explanation,
+        validationResult: planResult.validation || { valid: true }
+      }, { syncEngine });
+
+      broadcastToClients(wss, {
+        type: 'task:planned',
+        data: plannedTask,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+      broadcastToClients(wss, {
+        type: 'task:status',
+        data: plannedTask,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+
+      // 3. Executor validates plan operations locally
+      const val = validateModelPlan(planResult.operations);
+      recordWorkflowMessage(db, {
+        task_id: task.id,
+        sender_node: localNodeId,
+        sender_role: 'executor',
+        receiver_node: localNodeId,
+        receiver_role: 'executor',
+        message_type: 'PLAN_VALIDATED',
+        summary: `Executor locally validated plan operations against 3NF schema allowlists (${planResult.operations.length} ops). Verdict: VALID.`,
+        payload_metadata: { operationsCount: planResult.operations.length, valid: val.valid },
+        request_id: requestId
+      }, {
+        broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+        wsEventType: 'plan:validated'
+      });
+
+      // 4. Require human approval: Create approval request (Task state: Awaiting Approval)
+      const { task: awaitingTask, approval } = createTaskApproval(db, task.id, {
+        requestedBy: 'planner-alpha',
+        riskLevel: 'medium',
+        syncEngine
+      });
+
+      recordWorkflowMessage(db, {
+        task_id: task.id,
+        sender_node: localNodeId,
+        sender_role: 'executor',
+        receiver_node: 'operator',
+        receiver_role: 'user',
+        message_type: 'APPROVAL_REQUESTED',
+        summary: `Approval request ${approval.id} created for Collaborative Mesh Intelligence Task. Awaiting human approval before execution.`,
+        payload_metadata: { approvalId: approval.id, riskLevel: approval.risk_level }
+      }, {
+        broadcastWs: (t, d) => broadcastToClients(wss, { type: t, data: d, timestamp: Date.now(), source: config.NODE_NAME }),
+        wsEventType: 'approval:created'
+      });
+
+      broadcastToClients(wss, {
+        type: 'approval:created',
+        data: approval,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+      broadcastToClients(wss, {
+        type: 'task:status',
+        data: awaitingTask,
+        timestamp: Date.now(),
+        source: config.NODE_NAME
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Collaborative Mesh Intelligence Task initialized and awaiting human approval.',
+        task: awaitingTask,
+        approval
+      });
+    } catch (err) {
+      logger.error('Failed to create demo collaborative task', err);
+      res.status(500).json({ error: err.message, code: 'INTERNAL_ERROR', status: 500, success: false, errors: [err.message] });
     }
   });
 

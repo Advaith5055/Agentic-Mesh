@@ -271,6 +271,18 @@ export function executeMutationBatch(db, syncEngine, mutations, meta = {}) {
     };
   }
 
+  const callerRole = meta.role || meta.executorRole || meta.producerRole || meta.originRole || meta.nodeRole;
+  if (callerRole && (callerRole === 'planner' || callerRole === 'router' || callerRole === 'validator')) {
+    return {
+      success: false,
+      completed: 0,
+      failed: mutations.length,
+      results: [],
+      envelopes: [],
+      errors: [`Node with role '${callerRole}' is strictly forbidden from executing mutations.`]
+    };
+  }
+
   // 1. Pre-validate origin policy, allowlist and schema for all mutations
   const check = validateMutationBatch(db, mutations, { ...meta, producerPeerId: syncEngine?.peerId });
   if (!check.valid) {

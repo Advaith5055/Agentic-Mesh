@@ -89,16 +89,23 @@ export function runWorkflowMigrations(db) {
         FOREIGN KEY (node_id) REFERENCES mesh_nodes(id) ON DELETE CASCADE
       );
 
-      -- 3. Tasks: title, user prompt, task type, priority, status, requested_by, assigned_node_id, created_at, updated_at
+      -- 3. Tasks: title, user prompt, task type, priority, status, requested_by, assigned_node_id, planner_peer_id, planner_request_id, plan, operations, approval_id, execution_result, error, created_at, updated_at
       CREATE TABLE IF NOT EXISTS tasks (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
         user_prompt TEXT NOT NULL,
         task_type TEXT NOT NULL DEFAULT 'general',
         priority TEXT NOT NULL DEFAULT 'medium',
-        status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued', 'planned', 'awaiting_approval', 'executing', 'completed', 'failed', 'cancelled')),
+        status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued', 'planning', 'planned', 'awaiting_approval', 'approved', 'rejected', 'executing', 'completed', 'failed', 'cancelled')),
         requested_by TEXT,
         assigned_node_id TEXT,
+        planner_peer_id TEXT,
+        planner_request_id TEXT,
+        plan TEXT,
+        operations TEXT,
+        approval_id TEXT,
+        execution_result TEXT,
+        error TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (assigned_node_id) REFERENCES mesh_nodes(id) ON DELETE SET NULL
@@ -149,7 +156,7 @@ export function runWorkflowMigrations(db) {
         FOREIGN KEY (run_id) REFERENCES task_runs(id) ON DELETE SET NULL
       );
 
-      -- 7. Approvals: approval request, risk level, reviewer, decision, decision time, reason
+      -- 7. Approvals: approval request, risk level, reviewer, decision, decision time, reason, operations, planner_peer_id
       CREATE TABLE IF NOT EXISTS approvals (
         id TEXT PRIMARY KEY,
         task_id TEXT,
@@ -160,6 +167,8 @@ export function runWorkflowMigrations(db) {
         decision TEXT NOT NULL DEFAULT 'pending' CHECK(decision IN ('pending', 'approved', 'rejected')),
         decision_time DATETIME,
         reason TEXT,
+        operations TEXT,
+        planner_peer_id TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
         FOREIGN KEY (run_id) REFERENCES task_runs(id) ON DELETE CASCADE
@@ -205,6 +214,7 @@ export function runWorkflowMigrations(db) {
       -- Indexes for fast workflow queries & UI rendering
       CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
       CREATE INDEX IF NOT EXISTS idx_tasks_created ON tasks(created_at);
+      CREATE INDEX IF NOT EXISTS idx_tasks_planner_req ON tasks(planner_request_id);
       CREATE INDEX IF NOT EXISTS idx_task_runs_task_id ON task_runs(task_id);
       CREATE INDEX IF NOT EXISTS idx_task_steps_task_id ON task_steps(task_id);
       CREATE INDEX IF NOT EXISTS idx_artifacts_task_id ON artifacts(task_id);
@@ -215,6 +225,124 @@ export function runWorkflowMigrations(db) {
       CREATE INDEX IF NOT EXISTS idx_rep_metrics_timestamp ON replication_metrics(timestamp);
     `);
     db.prepare('INSERT OR IGNORE INTO _schema_migrations (version, name) VALUES (2, ?)').run('production_workflow_tables');
+  }
+
+  // Migration 3: Distributed workflow lifecycle columns & indexes for existing databases
+  const hasMigration3 = db.prepare('SELECT 1 FROM _schema_migrations WHERE version = 3').get();
+  if (!hasMigration3) {
+    try {
+      const taskColumns = new Set(db.prepare('PRAGMA table_info(tasks)').all().map(c => c.name));
+      const neededTaskCols = [
+        ['planner_peer_id', 'TEXT'],
+        ['planner_request_id', 'TEXT'],
+        ['plan', 'TEXT'],
+        ['operations', 'TEXT'],
+        ['approval_id', 'TEXT'],
+        ['execution_result', 'TEXT'],
+        ['error', 'TEXT']
+      ];
+      for (const [col, type] of neededTaskCols) {
+        if (!taskColumns.has(col)) {
+          db.exec(`ALTER TABLE tasks ADD COLUMN ${col} ${type};`);
+        }
+      }
+
+      const approvalColumns = new Set(db.prepare('PRAGMA table_info(approvals)').all().map(c => c.name));
+      const neededApprCols = [
+        ['operations', 'TEXT'],
+        ['planner_peer_id', 'TEXT']
+      ];
+      for (const [col, type] of neededApprCols) {
+        if (!approvalColumns.has(col)) {
+          db.exec(`ALTER TABLE approvals ADD COLUMN ${col} ${type};`);
+        }
+      }
+
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+        CREATE INDEX IF NOT EXISTS idx_tasks_planner_req ON tasks(planner_request_id);
+        CREATE INDEX IF NOT EXISTS idx_approvals_task_id ON approvals(task_id);
+        CREATE INDEX IF NOT EXISTS idx_approvals_decision ON approvals(decision);
+      `);
+      db.prepare('INSERT OR IGNORE INTO _schema_migrations (version, name) VALUES (3, ?)').run('distributed_workflow_lifecycle');
+    } catch (_mErr) {
+      // Ignore if columns already added
+    }
+  }
+
+  // Migration 4: Persistent workflow conversation timeline
+  const hasMigration4 = db.prepare('SELECT 1 FROM _schema_migrations WHERE version = 4').get();
+  if (!hasMigration4) {
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS task_messages (
+          message_id TEXT PRIMARY KEY,
+          task_id TEXT NOT NULL,
+          sender_node TEXT NOT NULL,
+          sender_role TEXT NOT NULL,
+          receiver_node TEXT NOT NULL,
+          receiver_role TEXT NOT NULL,
+          message_type TEXT NOT NULL,
+          summary TEXT NOT NULL,
+          payload_metadata TEXT,
+          status TEXT NOT NULL DEFAULT 'delivered',
+          request_id TEXT,
+          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_task_messages_task_id ON task_messages(task_id);
+        CREATE INDEX IF NOT EXISTS idx_task_messages_timestamp ON task_messages(timestamp);
+      `);
+      db.prepare('INSERT OR IGNORE INTO _schema_migrations (version, name) VALUES (4, ?)').run('persistent_workflow_conversation');
+    } catch (_mErr) {
+      // Ignore if table already exists
+    }
+  }
+
+  // Migration 5: Ensure tasks table status CHECK constraint supports all collaborative states
+  const hasMigration5 = db.prepare('SELECT 1 FROM _schema_migrations WHERE version = 5').get();
+  if (!hasMigration5) {
+    try {
+      const tasksTableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'").get()?.sql || '';
+      if (!tasksTableSql.includes("'planning'") || !tasksTableSql.includes("'approved'")) {
+        db.pragma('foreign_keys = OFF');
+        db.exec(`
+          CREATE TABLE tasks_new (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            user_prompt TEXT NOT NULL,
+            task_type TEXT NOT NULL DEFAULT 'general',
+            priority TEXT NOT NULL DEFAULT 'medium',
+            status TEXT NOT NULL DEFAULT 'queued' CHECK(status IN ('queued', 'planning', 'planned', 'awaiting_approval', 'approved', 'rejected', 'executing', 'completed', 'failed', 'cancelled')),
+            requested_by TEXT,
+            assigned_node_id TEXT,
+            planner_peer_id TEXT,
+            planner_request_id TEXT,
+            plan TEXT,
+            operations TEXT,
+            approval_id TEXT,
+            execution_result TEXT,
+            error TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (assigned_node_id) REFERENCES mesh_nodes(id) ON DELETE SET NULL
+          );
+          INSERT INTO tasks_new SELECT 
+            id, title, user_prompt, task_type, priority, status, requested_by, assigned_node_id,
+            planner_peer_id, planner_request_id, plan, operations, approval_id, execution_result, error,
+            created_at, updated_at 
+          FROM tasks;
+          DROP TABLE tasks;
+          ALTER TABLE tasks_new RENAME TO tasks;
+          CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+          CREATE INDEX IF NOT EXISTS idx_tasks_planner_req ON tasks(planner_request_id);
+        `);
+        db.pragma('foreign_keys = ON');
+      }
+      db.prepare('INSERT OR IGNORE INTO _schema_migrations (version, name) VALUES (5, ?)').run('tasks_status_check_expansion');
+    } catch (_mErr) {
+      db.pragma('foreign_keys = ON');
+    }
   }
 }
 
@@ -308,14 +436,14 @@ export function seedWorkflowData(db) {
   `);
 
   // Default mesh nodes
-  insertNode.run('node-delta', 'delta-planner', 'planner', '12D3KooW-DELTA-PLANNER', 'active', '127.0.0.1:9004', '2.0.0');
-  insertNode.run('node-alpha', 'alpha-executor', 'executor', '12D3KooW-ALPHA-EXEC', 'active', '127.0.0.1:9001', '2.0.0');
+  insertNode.run('node-alpha', 'alpha-planner', 'planner', '12D3KooW-ALPHA-PLANNER', 'active', '127.0.0.1:9002', '2.0.0');
+  insertNode.run('node-delta', 'delta-executor', 'executor', '12D3KooW-DELTA-EXEC', 'active', '127.0.0.1:9004', '2.0.0');
   insertNode.run('node-gamma', 'gamma-validator', 'validator', '12D3KooW-GAMMA-VALID', 'active', '127.0.0.1:9003', '2.0.0');
   insertNode.run('node-beta', 'beta-router', 'router', '12D3KooW-BETA-ROUTER', 'active', '127.0.0.1:9002', '2.0.0');
 
   // Capabilities
-  insertCap.run('cap-delta', 'node-delta', 'qwen2.5:1.5b, llama3.2:3b', 'planOperations, schemaIntrospect, decomposeWorkflow', 4, 'planning, synthesis, code_gen', JSON.stringify({ ram_gb: 16, gpu: 'NVIDIA RTX 4070' }));
-  insertCap.run('cap-alpha', 'node-alpha', 'local-rule-engine', 'executeMutationBatch, atomicCommit, fileSystemWriter', 8, 'db_write, api_dispatch, script_exec', JSON.stringify({ ram_gb: 32, gpu: 'N/A' }));
+  insertCap.run('cap-alpha', 'node-alpha', 'qwen2.5:1.5b, llama3.2:3b', 'planOperations, schemaIntrospect, decomposeWorkflow', 4, 'planning, synthesis, code_gen', JSON.stringify({ ram_gb: 16, gpu: 'NVIDIA RTX 4070' }));
+  insertCap.run('cap-delta', 'node-delta', 'local-rule-engine', 'executeMutationBatch, atomicCommit, fileSystemWriter', 8, 'db_write, api_dispatch, script_exec', JSON.stringify({ ram_gb: 32, gpu: 'N/A' }));
   insertCap.run('cap-gamma', 'node-gamma', 'deepseek-r1:1.5b', 'validateTransaction, schemaAudit, verifyPolicy', 6, 'validation, security_audit, compliance', JSON.stringify({ ram_gb: 16, gpu: 'NVIDIA RTX 3060' }));
   insertCap.run('cap-beta', 'node-beta', 'network-routing', 'routeTask, gossipPubSub, loadBalance', 12, 'dispatch, gateway, peering', JSON.stringify({ ram_gb: 8, gpu: 'N/A' }));
 
@@ -878,3 +1006,83 @@ export function getOperationalMetrics(db) {
     tasksFailed: taskCounts.failed || 0
   };
 }
+
+/**
+ * Inserts or updates a persistent workflow message in task_messages.
+ * @param {import('better-sqlite3').Database} db
+ * @param {Object} message
+ * @returns {Object}
+ */
+export function recordTaskMessage(db, {
+  message_id,
+  task_id,
+  sender_node,
+  sender_role,
+  receiver_node,
+  receiver_role,
+  message_type,
+  summary,
+  payload_metadata = null,
+  status = 'delivered',
+  request_id = null,
+  timestamp = null
+}) {
+  if (!db || typeof db.prepare !== 'function') return null;
+  const id = message_id || `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const metaStr = typeof payload_metadata === 'object' && payload_metadata !== null
+    ? JSON.stringify(payload_metadata)
+    : (payload_metadata || null);
+  const now = timestamp || new Date().toISOString();
+
+  db.prepare(`
+    INSERT OR REPLACE INTO task_messages (
+      message_id, task_id, sender_node, sender_role, receiver_node, receiver_role,
+      message_type, summary, payload_metadata, status, request_id, timestamp
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    task_id,
+    sender_node || 'unknown',
+    sender_role || 'peer',
+    receiver_node || 'all',
+    receiver_role || 'peer',
+    message_type,
+    summary,
+    metaStr,
+    status || 'delivered',
+    request_id || null,
+    now
+  );
+
+  return {
+    message_id: id,
+    task_id,
+    sender_node: sender_node || 'unknown',
+    sender_role: sender_role || 'peer',
+    receiver_node: receiver_node || 'all',
+    receiver_role: receiver_role || 'peer',
+    message_type,
+    summary,
+    payload_metadata: metaStr,
+    status: status || 'delivered',
+    request_id: request_id || null,
+    timestamp: now
+  };
+}
+
+/**
+ * Retrieves persistent workflow messages for a task or across all tasks.
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} [taskId=null]
+ * @param {number} [limit=200]
+ * @returns {Array<Object>}
+ */
+export function getTaskMessages(db, taskId = null, limit = 200) {
+  if (!db || typeof db.prepare !== 'function') return [];
+  const safeLimit = Math.min(Math.max(Number(limit) || 200, 1), 1000);
+  if (taskId) {
+    return db.prepare('SELECT * FROM task_messages WHERE task_id = ? ORDER BY timestamp ASC, rowid ASC LIMIT ?').all(taskId, safeLimit);
+  }
+  return db.prepare('SELECT * FROM task_messages ORDER BY timestamp ASC, rowid ASC LIMIT ?').all(safeLimit);
+}
+

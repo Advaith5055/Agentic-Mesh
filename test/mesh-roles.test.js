@@ -284,6 +284,7 @@ describe('Mesh Roles & Architecture', () => {
       const coordinator = new MeshCoordinator({
         node: mockNode,
         peerRegistry: registry,
+        nodeRole: 'planner',
         db,
         syncEngine,
         planOperations: async (prompt, _db) => {
@@ -355,6 +356,7 @@ describe('Mesh Roles & Architecture', () => {
       const coordinator = new MeshCoordinator({
         node: mockNode,
         peerRegistry: new PeerRegistry(),
+        nodeRole: 'planner',
         db,
         syncEngine,
         planOperations: async () => {
@@ -403,6 +405,7 @@ describe('Mesh Roles & Architecture', () => {
       const coordinator = new MeshCoordinator({
         node: mockNode,
         peerRegistry: new PeerRegistry(),
+        nodeRole: 'planner',
         db,
         syncEngine,
         planOperations: async () => ({
@@ -691,6 +694,7 @@ describe('Mesh Roles & Architecture', () => {
       const coordinatorRouter = new MeshCoordinator({
         node: createMockBusNode('router-id'),
         peerRegistry: registryRouter,
+        nodeRole: 'router',
         db,
         syncEngine,
         planOperations: async () => {},
@@ -701,6 +705,7 @@ describe('Mesh Roles & Architecture', () => {
       const coordinatorPlanner = new MeshCoordinator({
         node: createMockBusNode('planner-id'),
         peerRegistry: new PeerRegistry(),
+        nodeRole: 'planner',
         db,
         syncEngine,
         planOperations: async (prompt) => ({
@@ -722,6 +727,7 @@ describe('Mesh Roles & Architecture', () => {
       const coordinatorExecutor = new MeshCoordinator({
         node: createMockBusNode('executor-id'),
         peerRegistry: new PeerRegistry(),
+        nodeRole: 'executor',
         db,
         syncEngine,
         planOperations: async () => {},

@@ -19,7 +19,10 @@ export const MessageType = {
   PLAN_REQUEST: 'PLAN_REQUEST',
   PLAN_RESPONSE: 'PLAN_RESPONSE',
   EXECUTION_REQUEST: 'EXECUTION_REQUEST',
-  EXECUTION_RESPONSE: 'EXECUTION_RESPONSE'
+  EXECUTION_RESPONSE: 'EXECUTION_RESPONSE',
+  APPROVAL: 'APPROVAL',
+  APPROVAL_RESULT: 'APPROVAL_RESULT',
+  EXECUTION_RESULT: 'EXECUTION_RESULT'
 };
 
 /**
@@ -27,27 +30,44 @@ export const MessageType = {
  *
  * @param {Object} params
  * @param {string} [params.requestId]
+ * @param {string} [params.taskId]
  * @param {string} params.prompt
+ * @param {string} [params.taskType]
+ * @param {string} [params.task_type]
+ * @param {string} [params.priority]
  * @param {string} params.requesterPeerId
  * @param {string} [params.targetPeerId]
+ * @param {string} [params.targetPlannerPeerId]
  * @param {number} [params.timestamp]
  * @returns {Object}
  */
 export function createPlanRequest({
   requestId = uuidv4(),
+  taskId = null,
   prompt,
+  taskType = 'general',
+  task_type = null,
+  priority = 'medium',
   requesterPeerId,
   targetPeerId = null,
+  targetPlannerPeerId = null,
   timestamp = Date.now()
 }) {
   if (!prompt || typeof prompt !== 'string') {
     throw new Error('PLAN_REQUEST requires a valid string prompt');
   }
+  const target = targetPlannerPeerId || targetPeerId;
+  const effectiveType = task_type || taskType || 'general';
   return {
     requestId,
+    taskId,
     prompt,
+    taskType: effectiveType,
+    task_type: effectiveType,
+    priority,
     requesterPeerId,
-    targetPeerId,
+    targetPeerId: target,
+    targetPlannerPeerId: target,
     timestamp
   };
 }
@@ -57,8 +77,12 @@ export function createPlanRequest({
  *
  * @param {Object} params
  * @param {string} params.requestId
+ * @param {string} [params.taskId]
  * @param {boolean} params.success
  * @param {Array<Object>} [params.operations]
+ * @param {string|null} [params.explanation]
+ * @param {string|null} [params.planSummary]
+ * @param {Object|null} [params.validation]
  * @param {string|null} [params.error]
  * @param {string} params.plannerPeerId
  * @param {string} [params.targetPeerId]
@@ -67,8 +91,12 @@ export function createPlanRequest({
  */
 export function createPlanResponse({
   requestId,
+  taskId = null,
   success,
   operations = [],
+  explanation = null,
+  planSummary = null,
+  validation = null,
   error = null,
   plannerPeerId,
   targetPeerId = null,
@@ -76,8 +104,12 @@ export function createPlanResponse({
 }) {
   return {
     requestId,
+    taskId,
     success: Boolean(success),
     operations: Array.isArray(operations) ? operations : [],
+    explanation: explanation || planSummary || null,
+    planSummary: planSummary || explanation || null,
+    validation: validation || null,
     error: error || null,
     plannerPeerId,
     targetPeerId,
@@ -91,28 +123,65 @@ export function createPlanResponse({
  *
  * @param {Object} params
  * @param {string} [params.requestId]
+ * @param {string} [params.executionRequestId]
+ * @param {string} [params.taskId]
+ * @param {string} [params.approvalId]
+ * @param {string} [params.prompt]
  * @param {Array<Object>} params.operations
- * @param {string} params.routerPeerId
+ * @param {string} [params.routerPeerId]
  * @param {string|null} [params.plannerPeerId]
+ * @param {string} [params.approvingUser]
+ * @param {string} [params.approvalReason]
  * @param {string} [params.targetPeerId]
+ * @param {string} [params.targetExecutorPeerId]
  * @returns {Object}
  */
 export function createExecutionRequest({
   requestId = uuidv4(),
+  executionRequestId = null,
+  taskId = null,
+  approvalId = null,
+  title = null,
+  taskTitle = null,
+  prompt = null,
+  plan = null,
+  taskType = 'collaborative_intelligence',
+  priority = 'high',
+  plannerNodeName = null,
+  autoApprove = true,
   operations,
-  routerPeerId,
+  routerPeerId = null,
   plannerPeerId = null,
-  targetPeerId = null
+  approvingUser = 'admin',
+  approvalReason = '',
+  targetPeerId = null,
+  targetExecutorPeerId = null
 }) {
   if (!Array.isArray(operations) || operations.length === 0) {
     throw new Error('EXECUTION_REQUEST requires a non-empty operations array');
   }
+  const reqId = executionRequestId || requestId;
+  const target = targetExecutorPeerId || targetPeerId;
   return {
-    requestId,
+    requestId: reqId,
+    executionRequestId: reqId,
+    taskId,
+    approvalId,
+    title: title || taskTitle || prompt || 'Mesh Collaborative Task',
+    taskTitle: taskTitle || title || prompt || 'Mesh Collaborative Task',
+    prompt,
+    plan,
+    taskType,
+    priority,
+    plannerNodeName,
+    autoApprove,
     operations,
     routerPeerId,
     plannerPeerId,
-    targetPeerId
+    approvingUser,
+    approvalReason,
+    targetPeerId: target,
+    targetExecutorPeerId: target
   };
 }
 
@@ -121,6 +190,8 @@ export function createExecutionRequest({
  *
  * @param {Object} params
  * @param {string} params.requestId
+ * @param {string} [params.executionRequestId]
+ * @param {string} [params.taskId]
  * @param {boolean} params.success
  * @param {Object|null} [params.summary]
  * @param {string|null} [params.error]
@@ -130,19 +201,141 @@ export function createExecutionRequest({
  */
 export function createExecutionResponse({
   requestId,
+  executionRequestId = null,
+  taskId = null,
   success,
   summary = null,
   error = null,
+  executorPeerId,
+  targetPeerId = null,
+  status = null,
+  approvalId = null
+}) {
+  return {
+    requestId,
+    executionRequestId: executionRequestId || requestId,
+    taskId,
+    success: Boolean(success),
+    status: status || (success ? 'completed' : 'failed'),
+    approvalId: approvalId || null,
+    summary: summary || null,
+    error: error || null,
+    executorPeerId,
+    targetPeerId
+  };
+}
+
+/**
+ * Creates a structured APPROVAL payload for human or operator sign-off.
+ *
+ * @param {Object} params
+ * @param {string} [params.requestId]
+ * @param {string} params.taskId
+ * @param {string} [params.approvalId]
+ * @param {string} [params.decision='approved']
+ * @param {string} [params.reviewer='operator']
+ * @param {string} [params.reason='']
+ * @param {string|null} [params.targetPeerId]
+ * @returns {Object}
+ */
+export function createApproval({
+  requestId = uuidv4(),
+  taskId,
+  approvalId = null,
+  decision = 'approved',
+  reviewer = 'operator',
+  reason = '',
+  targetPeerId = null
+}) {
+  return {
+    requestId,
+    taskId,
+    approvalId,
+    decision,
+    reviewer,
+    reason,
+    targetPeerId,
+    timestamp: Date.now()
+  };
+}
+
+/**
+ * Creates a structured APPROVAL_RESULT payload.
+ *
+ * @param {Object} params
+ * @param {string} params.requestId
+ * @param {string} params.taskId
+ * @param {string} [params.approvalId]
+ * @param {boolean} params.success
+ * @param {string} params.decision
+ * @param {string|null} [params.error]
+ * @param {string|null} [params.targetPeerId]
+ * @returns {Object}
+ */
+export function createApprovalResult({
+  requestId,
+  taskId,
+  approvalId = null,
+  success,
+  decision,
+  error = null,
+  targetPeerId = null
+}) {
+  return {
+    requestId,
+    taskId,
+    approvalId,
+    success: Boolean(success),
+    decision,
+    error: error || null,
+    targetPeerId,
+    timestamp: Date.now()
+  };
+}
+
+/**
+ * Creates a structured EXECUTION_RESULT payload upon final mutation commit or failure.
+ *
+ * @param {Object} params
+ * @param {string} params.requestId
+ * @param {string} [params.executionRequestId]
+ * @param {string} params.taskId
+ * @param {boolean} params.success
+ * @param {string} params.status - 'completed' | 'failed' | 'rejected'
+ * @param {number} [params.completed=0]
+ * @param {Array<Object>} [params.results=[]]
+ * @param {string|null} [params.error=null]
+ * @param {Array<string>} [params.errors=[]]
+ * @param {string} params.executorPeerId
+ * @param {string|null} [params.targetPeerId=null]
+ * @returns {Object}
+ */
+export function createExecutionResult({
+  requestId,
+  executionRequestId = null,
+  taskId,
+  success,
+  status = 'completed',
+  completed = 0,
+  results = [],
+  error = null,
+  errors = [],
   executorPeerId,
   targetPeerId = null
 }) {
   return {
     requestId,
+    executionRequestId: executionRequestId || requestId,
+    taskId,
     success: Boolean(success),
-    summary: summary || null,
-    error: error || null,
+    status,
+    completed,
+    results,
+    error: error || (errors.length ? errors.join('; ') : null),
+    errors,
     executorPeerId,
-    targetPeerId
+    targetPeerId,
+    timestamp: Date.now()
   };
 }
 
