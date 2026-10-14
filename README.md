@@ -18,6 +18,8 @@
 - [Project Structure](#-project-structure)
 - [Node Roles & Multi-Node Architecture](#-node-roles--multi-node-architecture)
 - [Task State Machine & Lifecycle](#-task-state-machine--lifecycle)
+- [Live Agent Conversation & Multi-Agent Collaboration](#-live-agent-conversation--multi-agent-collaboration)
+- [Architectural Invariants & Safety Guarantees](#-architectural-invariants--safety-guarantees)
 - [Dual Dashboards](#-dual-dashboards)
 - [Agent Activity & Instrumentation](#-agent-activity--instrumentation)
 - [Workflow Security & API Authentication](#-workflow-security--api-authentication)
@@ -86,16 +88,17 @@
 |:---|:---|
 | **P2P Networking** | libp2p with TCP transport, Noise encryption, Mplex multiplexing, mDNS auto-discovery, GossipSub pub/sub |
 | **Causal Replication** | Vector-clock ordering, append-only `_mesh_log`, anti-entropy sync, deduplication, deterministic log replay |
-| **AI Planning** | Localised Ollama LLM (qwen2.5-coder:1.5b), structured operation DAGs (never raw SQL), 3-tier speed strategy |
-| **Role Separation** | Dedicated Planner, Executor, Router, Validator, and all-in-one Peer roles with enforced authorization |
-| **Workflow Engine** | 10-table schema, strict state machine (queued → planned → executing → completed), approval gates, audit trails |
-| **Dual Dashboards** | Planner Dashboard (Kanban, topology, agent chat) + Executor Dashboard (execution monitor, replication metrics) |
-| **Agent Activity** | Real-time hand-off tracking across Router → Planner → Executor → Validator → Mesh with per-agent performance stats |
-| **Safety & Security** | Schema allowlist validation (<1ms), origin policies, API key auth, CORS restrictions, role-based mutation guards |
+| **Autonomous AI Planning** | Autonomous planner (`autonomous-planner.js`) with localized Ollama LLM (`qwen2.5-coder:1.5b`), structured operation DAGs (never raw SQL), 3-tier speed strategy |
+| **Role Separation & Invariants** | Dedicated Planner, Executor, Router, Validator, and Peer roles with 10 enforced architectural invariants (Section 21) |
+| **Live Agent Conversation** | Real-time reactive agent-to-agent deliberation stream (`LiveAgentConversationPanel.jsx`) displaying multi-agent consensus, reasoning, and peer handoffs |
+| **Workflow Engine** | 10-table schema, strict state machine (`queued → planned → awaiting_approval → approved → executing → completed / rejected / failed`), approval gates, immutable audit trails |
+| **Dual Dashboards** | Planner Dashboard (Kanban, topology HUD, live agent chat panel) + Executor Dashboard (execution monitor, replication metrics) |
+| **Agent Activity & Tracing** | Real-time hand-off tracking across Router → Planner → Executor → Validator → Mesh with per-agent performance metrics |
+| **Safety & Security** | Sub-millisecond schema allowlist validation, origin policies, API key auth, CORS restrictions, role-based mutation guards |
 | **Atomic Transactions** | SQLite WAL mode, all-or-nothing atomic commits, complete rollback on error, foreign key enforcement |
 | **Fine-Tuning Pipeline** | QLoRA training on Google Gemma with 32+ training examples, evaluation suite, Ollama Modelfile deployment |
 | **Docker Orchestration** | 4-node docker-compose with shared Ollama sidecar, persistent volumes, bridge networking |
-| **Comprehensive Tests** | 15 test files, 100+ assertions covering schema validation, vector clocks, workflow lifecycle, role enforcement, API security, replication |
+| **Comprehensive Tests** | 18 test files, 150+ assertions covering schema validation, vector clocks, workflow lifecycle, role enforcement, architectural repair, distributed handoffs, and replication |
 
 ---
 
@@ -115,6 +118,7 @@ agentic-mesh/
 │   ├── agents/
 │   │   ├── activity.js               # Agent activity tracker & system sampler
 │   │   ├── agent-chat.js             # Conversational AI with 3-tier speed strategy
+│   │   ├── autonomous-planner.js     # Autonomous multi-agent planner & task delegator
 │   │   ├── coordinator.js            # Mesh agent coordinator (role-based delegation)
 │   │   ├── executor.js               # Transaction execution & proposal commit/reject
 │   │   ├── instrumented.js           # Instrumentation wrappers for all agent hops
@@ -154,7 +158,8 @@ agentic-mesh/
 │   │   └── logger.js                 # Coloured structured logger
 │   │
 │   ├── AgenticMeshDashboard.jsx      # Planner Dashboard (React 19)
-│   └── AgentActivityPanel.jsx        # Agent activity visualisation panel
+│   ├── AgentActivityPanel.jsx        # Agent activity visualisation panel
+│   └── LiveAgentConversationPanel.jsx # Real-time multi-agent live conversation stream
 │
 ├── executor-dashboard/
 │   ├── vite.config.js                # Executor Dashboard Vite config (:5174)
@@ -164,7 +169,10 @@ agentic-mesh/
 │       ├── AgentActivityPanel.jsx     # Agent activity panel (executor view)
 │       └── main.jsx                  # React entry point
 │
-├── test/                             # 15 test files, 100+ assertions
+├── test/                             # 18 test files, 150+ assertions
+│   ├── architectural-repair.test.js  # Section 21 invariant enforcement tests
+│   ├── collaborative-workflow.test.js# Multi-agent collaboration & delegation tests
+│   ├── distributed-workflow.test.js  # Distributed handoffs & rollback tests
 │   ├── schema-validator.test.js      # Schema validation tests
 │   ├── mutation.test.js              # Atomic mutation tests
 │   ├── vector-clock.test.js          # Vector clock tests
@@ -260,34 +268,91 @@ The distributed workflow engine enforces a strict task state machine:
                └───────────┬───────────┘
                            │ planTask()
                            ▼
-               ┌───────────────────────┐  [High Risk]
-               │        PLANNED        │ ──────────────────┐
-               └───────────┬───────────┘                    │
-                           │ executeTask()                  ▼
-                           │                  ┌──────────────────────┐
-                           │                  │   AWAITING_APPROVAL  │
-                           │                  └──────┬──────┬────────┘
-                           │          [Approved]     │      │ [Rejected]
-                           │     ┌───────────────────┘      │
-                           │     ▼                          ▼
-                           │  (PLANNED)              ┌───────────┐
-                           │     │                   │   FAILED   │
-                           ▼     ▼                   └───────────┘
-               ┌───────────────────────┐                    ▲
-               │       EXECUTING       │ ───────────────────┘
-               └───────────┬───────────┘   [Error]
-                           │ [Success]
-                           ▼
                ┌───────────────────────┐
-               │       COMPLETED       │  (Terminal)
-               └───────────────────────┘
+               │        PLANNED        │ ◄─────────────────────────┐
+               └───────────┬───────────┘                           │
+                           │ dispatchTask()                        │
+                           ▼                                       │
+               ┌───────────────────────┐                           │
+               │   AWAITING_APPROVAL   │                           │
+               └──────┬─────────┬──────┘                           │
+       [Approved]     │         │ [Rejected]                       │
+       ┌──────────────┘         └──────────────┐                   │
+       ▼                                       ▼                   │
+┌──────────────┐                        ┌──────────────┐           │
+│   APPROVED   │                        │   REJECTED   │ (Terminal)│
+└──────┬───────┘                        └──────────────┘           │
+       │ executeTask()                                             │
+       ▼                                                           │
+┌──────────────┐   [Transient Retry / Repaired Plan]               │
+│  EXECUTING   │ ──────────────────────────────────────────────────┘
+└──────┬───────┘
+       ├─────────────────────────┐
+       │ [Success]               │ [Unrecoverable Error]
+       ▼                         ▼
+┌──────────────┐          ┌──────────────┐
+│  COMPLETED   │(Terminal)│    FAILED    │ (Terminal)
+└──────────────┘          └──────────────┘
 
    * Any active state ──► CANCELLED (explicit cancellation with audit)
 ```
 
-**Allowed Transitions:** `queued → planned → awaiting_approval → planned` (approved) | `→ failed` (rejected) | `planned → executing → completed` | `→ failed` | `* → cancelled`
+**Allowed Transitions:**
+- `queued → planned`
+- `planned → awaiting_approval`
+- `awaiting_approval → approved` | `rejected`
+- `approved → executing → completed` | `failed`
+- `* → cancelled` (with immutable audit trail)
 
-**Protection Guarantees:** Execution is strictly rejected for `queued`, `awaiting_approval`, `completed`, `failed`, `cancelled`, and already-`executing` tasks. A completed task can never execute twice.
+**Protection Guarantees:** Execution is strictly rejected for `queued`, `awaiting_approval`, `completed`, `failed`, `rejected`, `cancelled`, and already-`executing` tasks. A completed or rejected task can never execute twice.
+
+---
+
+## 💬 Live Agent Conversation & Multi-Agent Collaboration
+
+Agentic Mesh introduces a real-time reactive communication channel enabling autonomous multi-agent dialogue, consensus verification, and operator interaction:
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                 Live Agent Conversation Stream (WebSocket)                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ [14:02:11] 🤖 Router: "Decomposed prompt 'Add RTX 5090 inventory'.          │
+│            Routing to Autonomous Planner (delta)."                         │
+│ [14:02:12] 🧠 Planner (delta): "Analyzed schema invariants. Formulating      │
+│            atomic mutation batch for 'items' and 'inventory' tables."       │
+│ [14:02:13] 🛡️ Validator (gamma): "Pre-execution dry-run verified: zero       │
+│            foreign-key violations, price constraint valid ($1999 > 0)."     │
+│ [14:02:14] ⚙️ Executor (alpha): "Received handoff from delta. Approval token │
+│            valid. Committing mutations to local SQLite & broadcasting diff."│
+│ [14:02:15] 🌐 Mesh Sync: "Vector clock advanced V_α=[δ:14, α:15]. Replicated │
+│            to 3 peers over GossipSub in 4.2ms."                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Capabilities:
+- **`LiveAgentConversationPanel.jsx`**: An interactive, full-duplex conversational UI embedded directly within both the Planner and Executor dashboards.
+- **Autonomous Multi-Agent Planner (`autonomous-planner.js`)**: Decoupled daemon agent that continually polls for pending tasks, invokes the local Ollama LLM (`qwen2.5-coder:1.5b`), resolves schema dependencies, and delegates validated mutation plans to executor peers over libp2p.
+- **Collaborative Turning & Reasoning**: Agents exchange protocol envelopes (`AGENT_CHAT_MESSAGE`, `AGENT_PROPOSAL`, `AGENT_VERIFICATION`) with causal vector timestamps, providing full traceability for why an architectural decision or database mutation was taken.
+- **Human-in-the-Loop Interventions**: Operators can chat directly with autonomous agents, interrogate decision trees, or override planned operations prior to approval.
+
+---
+
+## 🛡️ Architectural Invariants & Safety Guarantees
+
+The system enforces 10 formal architectural invariants validated by `test/architectural-repair.test.js` (Section 21):
+
+| # | Invariant | Description | Enforcement Mechanism |
+|:---:|:---|:---|:---|
+| **1** | **Planner Mutation Prohibition** | Planner nodes (`role: planner`) must never execute database mutations or commit directly. | `executeMutationBatch` enforces role check; throws `403 FORBIDDEN`. |
+| **2** | **Executor Planning Prohibition** | Executor nodes (`role: executor`) must never originate task plans. | `planTask` verifies `planner` or `peer` role. |
+| **3** | **Approval Gate Enforcement** | No planned task can execute without explicit approval review. | `executeTask` strictly checks `APPROVED` status; rejects pending approvals. |
+| **4** | **Strict Approval Transition** | Human or agent approval moves task strictly from `AWAITING_APPROVAL` to `APPROVED`. | `approveTask` atomic state transition & decision audit record. |
+| **5** | **Strict Rejection Immutability** | Rejection moves task strictly to `REJECTED`, permanently preventing execution. | `rejectTask` creates terminal `REJECTED` state; bypass attempts throw `409 Conflict`. |
+| **6** | **Sub-ms Allowlist Validation** | Every operation must conform to table, column, type, FK, and bound constraints before execution. | `validateOperations` (<1ms) allowlist verification. |
+| **7** | **Atomic Commit & Rollback** | Mutations within a task commit atomically or rollback completely on any failure. | SQLite transaction wrapper (`BEGIN IMMEDIATE ... ROLLBACK`). |
+| **8** | **Causal Vector Replication** | Every successful mutation increments the local vector clock and appends to `_mesh_log`. | `SyncEngine.recordLocalMutation()` and GossipSub propagation. |
+| **9** | **Tamper-Evident Audit Trail** | Every lifecycle event, state transition, and actor identity is permanently recorded. | Immutable `audit_events` log with actor role derivation. |
+| **10**| **Trusted Role Derivation** | Node identity and roles are derived from server-side configuration, not client headers. | Security context verification on all internal service routes. |
 
 ---
 
@@ -295,6 +360,7 @@ The distributed workflow engine enforces a strict task state machine:
 
 ### Planner Dashboard (`:5173`)
 The primary operational dashboard for the Planner node:
+- **Live Agent Conversation Panel** — Real-time stream of inter-agent deliberation, reasoning, and human-agent chat
 - **Kanban Workflow Board** — Drag-and-drop task lifecycle visualisation across all states
 - **2D Force-Directed Topology** — Live mesh topology with peer connections and roles
 - **Agent Assistant** — Conversational AI chat with streaming responses
@@ -305,6 +371,7 @@ The primary operational dashboard for the Planner node:
 
 ### Executor Dashboard (`:5174`)
 A dedicated monitoring dashboard for Executor nodes:
+- **Live Agent Conversation Panel** — Peer deliberation feed synchronized across nodes in real-time
 - **Execution Monitor** — Live transaction execution feed with commit/rollback status
 - **Agent Activity Panel** — Step-by-step hand-off tracing (Router → Planner → Executor)
 - **Replication Metrics** — Throughput, latency, and vector clock synchronisation stats
@@ -510,7 +577,7 @@ All endpoints served on `WS_PORT` (default `3004`):
 ## 🧪 Automated Testing
 
 ```bash
-# Run full test suite (15 test files, 100+ assertions)
+# Run full test suite (18 test files, 150+ assertions)
 npm test
 
 # End-to-end two-node smoke test
@@ -528,6 +595,9 @@ npm run build:executor-dashboard
 
 | Test File | Coverage |
 |:---|:---|
+| `architectural-repair.test.js` | Section 21 invariant enforcement, role separation, and terminal rejection immutability |
+| `collaborative-workflow.test.js` | Multi-agent collaborative turns, conversational protocol envelopes, and peer delegation |
+| `distributed-workflow.test.js` | End-to-end distributed handoffs, live discussions, vector clock propagation, and atomic rollback |
 | `schema-validator.test.js` | Table/column/type/FK/bound validation |
 | `mutation.test.js` | Atomic commit, rollback, mesh_log integrity |
 | `vector-clock.test.js` | Increment, merge, comparison operations |
